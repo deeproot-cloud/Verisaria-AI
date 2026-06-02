@@ -1,0 +1,37 @@
+{
+  "fixture_id": "ft_stealth_001",
+  "task_type": "parse_player_intent",
+  "schema_version": "2.0",
+  "prompt_version": "parse_player_intent/v1.0.0",
+  "input": {
+    "raw_text": "看看周围",
+    "source": "natural_language",
+    "actor_id": "player_001",
+    "context": {
+      "current_location": "town_square",
+      "current_zone": "center",
+      "active_conversations": []
+    }
+  },
+  "expected_output": {
+    "intent_id": "intent_001",
+    "source": "natural_language",
+    "raw_text": "看看周围",
+    "intent_type": "look",
+    "actor_id": "player_001",
+    "target_ref": null,
+    "target_id": null,
+    "content": null,
+    "modifiers": {},
+    "commitment": "committed",
+    "confidence": 0.98,
+    "ambiguities": [],
+    "performed_content": "看看周围",
+    "player_intent_note": null,
+    "conversation_session_id": null,
+    "timestamp": 1
+  },
+  "llm_response": {
+    "raw": "{\n  \"intent_id\": \"intent_001\",\n  \"source\": \"natural_language\",\n  \"raw_text\": \"看看周围\",\n  \"intent_type\": \"look\",\n  \"actor_id\": \"player_001\",\n  \"commitment\": \"committed\",\n  \"confidence\": 0.98,\n  \"ambiguities\": [],\n  \"performed_content\": \"看看周围\"\n}"
+  }
+}

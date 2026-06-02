@@ -1,0 +1,16 @@
+{
+  "content_pack_id": "minimal",
+  "schema_version": "2.0",
+  "world_premise": {"era": "test", "tone": "neutral", "central_tension": "none"},
+  "starting_location": "void",
+  "initial_entities": [
+    {"entity_id": "player_001", "entity_type": "player", "location_id": "void"}
+  ],
+  "initial_relationships": [],
+  "initial_conversations": [],
+  "player_agenda_template": {},
+  "style_guide": {},
+  "constraints": {},
+  "campaign_drivers": [],
+  "rule_presets": {}
+}

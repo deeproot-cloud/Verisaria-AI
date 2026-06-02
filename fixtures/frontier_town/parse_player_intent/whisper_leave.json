@@ -1,0 +1,41 @@
+{
+  "fixture_id": "ft_speech_001",
+  "task_type": "parse_player_intent",
+  "schema_version": "2.0",
+  "prompt_version": "parse_player_intent/v1.0.0",
+  "input": {
+    "raw_text": "我低声对艾蕾说，我们先快离开这儿",
+    "source": "natural_language",
+    "actor_id": "player_001",
+    "context": {
+      "current_location": "town_square",
+      "current_zone": "center",
+      "active_conversations": ["conv_001"]
+    }
+  },
+  "expected_output": {
+    "intent_id": "intent_speech_001",
+    "source": "natural_language",
+    "raw_text": "我低声对艾蕾说，我们先快离开这儿",
+    "intent_type": "speech",
+    "actor_id": "player_001",
+    "target_ref": "艾蕾",
+    "target_id": "npc.ele",
+    "content": "我们先快离开这儿",
+    "modifiers": {
+      "volume": "low",
+      "emotion": "nervous",
+      "urgency": "high"
+    },
+    "commitment": "committed",
+    "confidence": 0.91,
+    "ambiguities": [],
+    "performed_content": "我们先快离开这儿",
+    "player_intent_note": "不让卫兵听见",
+    "conversation_session_id": "conv_001",
+    "timestamp": 1
+  },
+  "llm_response": {
+    "raw": "{\"intent_id\":\"intent_speech_001\",\"source\":\"natural_language\",\"raw_text\":\"我低声对艾蕾说，我们先快离开这儿\",\"intent_type\":\"speech\",\"actor_id\":\"player_001\",\"target_ref\":\"艾蕾\",\"target_id\":\"npc.ele\",\"content\":\"我们先快离开这儿\",\"modifiers\":{\"volume\":\"low\",\"emotion\":\"nervous\",\"urgency\":\"high\"},\"commitment\":\"committed\",\"confidence\":0.91,\"ambiguities\":[],\"performed_content\":\"我们先快离开这儿\",\"player_intent_note\":\"不让卫兵听见\",\"conversation_session_id\":\"conv_001\",\"timestamp\":1}"
+  }
+}

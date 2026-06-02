@@ -1,0 +1,37 @@
+{
+  "fixture_id": "ft_commitment_001",
+  "task_type": "parse_player_intent",
+  "schema_version": "2.0",
+  "prompt_version": "parse_player_intent/v1.0.0",
+  "input": {
+    "raw_text": "我在想是不是该离开这个镇子了",
+    "source": "natural_language",
+    "actor_id": "player_001",
+    "context": {
+      "current_location": "town_square",
+      "current_zone": "center",
+      "active_conversations": []
+    }
+  },
+  "expected_output": {
+    "intent_id": "intent_consider_001",
+    "source": "natural_language",
+    "raw_text": "我在想是不是该离开这个镇子了",
+    "intent_type": "wait",
+    "actor_id": "player_001",
+    "target_ref": null,
+    "target_id": null,
+    "content": null,
+    "modifiers": {},
+    "commitment": "considering",
+    "confidence": 0.6,
+    "ambiguities": [],
+    "performed_content": null,
+    "player_intent_note": "考虑离开镇子",
+    "conversation_session_id": null,
+    "timestamp": 1
+  },
+  "llm_response": {
+    "raw": "{\"intent_id\":\"intent_consider_001\",\"source\":\"natural_language\",\"raw_text\":\"我在想是不是该离开这个镇子了\",\"intent_type\":\"wait\",\"actor_id\":\"player_001\",\"commitment\":\"considering\",\"confidence\":0.6,\"ambiguities\":[],\"performed_content\":null,\"player_intent_note\":\"考虑离开镇子\",\"timestamp\":1}"
+  }
+}

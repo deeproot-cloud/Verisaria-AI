@@ -1,0 +1,33 @@
+# Local secrets — never commit (holds the LLM API key)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environment
+.venv/
+venv/
+
+# OS / editor / tool dirs (per-machine, never tracked)
+.DS_Store
+.idea/
+.vscode/
+.claude/
+
+# Runtime / save artifacts (engine writes these on play/replay)
+saves/
+_replay_saves/
+_test_replay*/
+_playtest_saves/
+_tmp*/
+
+# Transient playtest / benchmark outputs
+playtest_out.txt
+mm_*_out.txt

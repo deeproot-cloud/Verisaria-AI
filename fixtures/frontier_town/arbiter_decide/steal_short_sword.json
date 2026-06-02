@@ -1,0 +1,54 @@
+{
+  "fixture_id": "ft_arbiter_001",
+  "task_type": "arbiter_decide",
+  "schema_version": "2.0",
+  "prompt_version": "arbiter_decide/v1.0.0",
+  "input": {
+    "action": {
+      "action_id": "act_1_1",
+      "actor_id": "player_001",
+      "action_type": "physical",
+      "params": {
+        "verb": "steal",
+        "target": "short_sword"
+      },
+      "tick": 1
+    },
+    "context": {
+      "actor_attributes": {
+        "dexterity": 0.70,
+        "perception": 0.60
+      },
+      "environment": {
+        "noise_level": "loud",
+        "visibility": "high",
+        "crowded": true
+      },
+      "target_guard": {
+        "perception": 0.75,
+        "alertness": 0.3,
+        "traits": ["anxious", "greedy", "loyal_to_duty"]
+      }
+    }
+  },
+  "expected_output": {
+    "arbiter_id": "arb_001",
+    "source_action_id": "act_1_1",
+    "outcome": "partial_success",
+    "reason": "广场很吵，但守卫的感知很高。你成功拿到了短剑，但守卫似乎注意到了什么，警觉度上升。",
+    "evidence_refs": [
+      {"path": "world_state.locations.town_square.zones.center.noise_level", "value": "loud", "source": "world_state"},
+      {"path": "npc.guard_b.attributes.perception", "value": 0.75, "source": "attribute"},
+      {"path": "npc.guard_b.traits.anxious", "value": true, "source": "trait"}
+    ],
+    "state_changes_proposed": [
+      {"field": "npc.guard_b.alertness", "delta": 0.2, "reason": "感觉有人在附近动作"},
+      {"field": "player_001.inventory", "delta": "short_sword", "reason": "偷窃成功"}
+    ],
+    "confidence": 0.72,
+    "narration_hint": "你迅速从展示台上拿走了短剑，但余光中你看到守卫的耳朵动了一下。"
+  },
+  "llm_response": {
+    "raw": "{\"arbiter_id\":\"arb_001\",\"source_action_id\":\"act_1_1\",\"outcome\":\"partial_success\",\"reason\":\"广场很吵，但守卫的感知很高...\",\"evidence_refs\":[{\"path\":\"world_state.locations.town_square.zones.center.noise_level\",\"value\":\"loud\",\"source\":\"world_state\"}],\"state_changes_proposed\":[{\"field\":\"npc.guard_b.alertness\",\"delta\":0.2,\"reason\":\"感觉有人在附近动作\"}],\"confidence\":0.72,\"narration_hint\":\"你迅速从展示台上拿走了短剑...\"}"
+  }
+}

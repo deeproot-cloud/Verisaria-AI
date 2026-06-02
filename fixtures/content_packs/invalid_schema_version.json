@@ -1,0 +1,14 @@
+{
+  "content_pack_id": "bad_pack",
+  "schema_version": "1.0",
+  "world_premise": {"era": "test", "tone": "neutral", "central_tension": "none"},
+  "starting_location": "void",
+  "initial_entities": [],
+  "initial_relationships": [],
+  "initial_conversations": [],
+  "player_agenda_template": {},
+  "style_guide": {},
+  "constraints": {},
+  "campaign_drivers": [],
+  "rule_presets": {}
+}

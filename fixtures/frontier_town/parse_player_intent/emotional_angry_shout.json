@@ -1,0 +1,41 @@
+{
+  "fixture_id": "ft_emotion_001",
+  "task_type": "parse_player_intent",
+  "schema_version": "2.0",
+  "prompt_version": "parse_player_intent/v1.0.0",
+  "input": {
+    "raw_text": "我愤怒地对守卫大喊：你们到底在隐瞒什么！",
+    "source": "natural_language",
+    "actor_id": "player_001",
+    "context": {
+      "current_location": "town_square",
+      "current_zone": "center",
+      "active_conversations": []
+    }
+  },
+  "expected_output": {
+    "intent_id": "intent_emotion_001",
+    "source": "natural_language",
+    "raw_text": "我愤怒地对守卫大喊：你们到底在隐瞒什么！",
+    "intent_type": "speech",
+    "actor_id": "player_001",
+    "target_ref": "守卫",
+    "target_id": "npc.guard_b",
+    "content": "你们到底在隐瞒什么！",
+    "modifiers": {
+      "volume": "loud",
+      "emotion": "angry",
+      "urgency": "high"
+    },
+    "commitment": "committed",
+    "confidence": 0.92,
+    "ambiguities": [],
+    "performed_content": "你们到底在隐瞒什么！",
+    "player_intent_note": null,
+    "conversation_session_id": null,
+    "timestamp": 1
+  },
+  "llm_response": {
+    "raw": "{\"intent_id\":\"intent_emotion_001\",\"source\":\"natural_language\",\"raw_text\":\"我愤怒地对守卫大喊：你们到底在隐瞒什么！\",\"intent_type\":\"speech\",\"actor_id\":\"player_001\",\"target_ref\":\"守卫\",\"target_id\":\"npc.guard_b\",\"content\":\"你们到底在隐瞒什么！\",\"modifiers\":{\"volume\":\"loud\",\"emotion\":\"angry\",\"urgency\":\"high\"},\"commitment\":\"committed\",\"confidence\":0.92,\"ambiguities\":[],\"performed_content\":\"你们到底在隐瞒什么！\",\"timestamp\":1}"
+  }
+}

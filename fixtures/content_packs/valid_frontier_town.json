@@ -1,0 +1,95 @@
+{
+  "content_pack_id": "frontier_town",
+  "schema_version": "2.0",
+  "world_premise": {
+    "era": "medieval_fantasy",
+    "tone": "gritty",
+    "central_tension": "post_war_tensions"
+  },
+  "world_book": [
+    {
+      "entry_id": "demon_existence",
+      "layer": "canonical_fact",
+      "content": "恶魔族群确实存在，拥有独立的语言、文明和社会结构。",
+      "access": {"visible_to": {"faction": ["all"]}, "hidden_from": {}},
+      "confidence_policy": "fact"
+    },
+    {
+      "entry_id": "church_demon_propaganda",
+      "layer": "faction_propaganda",
+      "content": "教会宣称恶魔是人类苦难的根源，必须被驱逐。",
+      "access": {"visible_to": {"faction": ["church_of_flame"]}, "hidden_from": {}},
+      "confidence_policy": "belief_not_fact"
+    }
+  ],
+  "starting_location": "town_square",
+  "initial_entities": [
+    {
+      "entity_id": "player_001",
+      "entity_type": "player",
+      "location_id": "town_square",
+      "zone_id": "center",
+      "attributes": {"strength": 0.5, "dexterity": 0.6},
+      "traits": ["curious", "cautious"]
+    },
+    {
+      "entity_id": "npc.guard_b",
+      "entity_type": "npc",
+      "location_id": "town_square",
+      "zone_id": "center",
+      "attributes": {"strength": 0.7, "perception": 0.6},
+      "traits": ["anxious", "loyal"]
+    },
+    {
+      "entity_id": "npc.ele",
+      "entity_type": "npc",
+      "location_id": "tavern",
+      "zone_id": "main_hall",
+      "attributes": {"charisma": 0.8},
+      "traits": ["kind", "perceptive"]
+    }
+  ],
+  "initial_relationships": [
+    {"npc_id": "npc.guard_b", "target_id": "player_001", "type": "wary"},
+    {"npc_id": "npc.ele", "target_id": "player_001", "type": "friendly"}
+  ],
+  "initial_conversations": [],
+  "player_agenda_template": {
+    "current_drives": [
+      {"id": "drive_survive", "label": "先解决温饱", "strength": 0.8, "source": "player_declared"}
+    ],
+    "inference_mode": "reflection_only",
+    "suggestion_mode": "subtle"
+  },
+  "style_guide": {
+    "narrative_voice": "第三人称有限视角，聚焦玩家感官体验",
+    "tone_references": ["gritty", "grounded", "low_fantasy"],
+    "prohibited_tropes": ["fourth_wall_break"]
+  },
+  "constraints": {
+    "max_entities_per_location": 20,
+    "player_death": "incapacitated_only"
+  },
+  "campaign_drivers": [
+    {
+      "driver_id": "border_scarcity",
+      "type": "social_pressure",
+      "description": "边境物资短缺引发社会动荡",
+      "signals": [
+        {"condition": "food_price > threshold", "weight": 0.4},
+        {"condition": "refugee_count > 5", "weight": 0.3}
+      ],
+      "possible_events": [
+        {"event_type": "market_argument", "probability": 0.5},
+        {"event_type": "supply_surge", "probability": 0.3},
+        {"event_type": "refugee_unrest", "probability": 0.2}
+      ],
+      "severity": 0.45,
+      "cooldown_ticks": 10
+    }
+  ],
+  "rule_presets": {
+    "difficulty": "normal",
+    "stealth_threshold_base": 0.5
+  }
+}

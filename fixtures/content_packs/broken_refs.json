@@ -1,0 +1,18 @@
+{
+  "content_pack_id": "broken_refs",
+  "schema_version": "2.0",
+  "world_premise": {"era": "test", "tone": "neutral", "central_tension": "none"},
+  "starting_location": "void",
+  "initial_entities": [
+    {"entity_id": "npc.guard_b", "entity_type": "npc", "location_id": "void"}
+  ],
+  "initial_relationships": [
+    {"npc_id": "npc.guard_b", "target_id": "npc.missing", "type": "hostile"}
+  ],
+  "initial_conversations": [],
+  "player_agenda_template": {},
+  "style_guide": {},
+  "constraints": {},
+  "campaign_drivers": [],
+  "rule_presets": {}
+}
