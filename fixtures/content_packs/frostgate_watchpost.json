@@ -1,0 +1,228 @@
+{
+  "content_pack_id": "frostgate_watchpost",
+  "schema_version": "2.0",
+  "world_premise": {
+    "era": "low_fantasy_frontier",
+    "tone": "grim_tense",
+    "central_tension": "a snowbound border watchpost where dwindling supplies and old propaganda turn fear of demon refugees into open suspicion"
+  },
+  "world_book": [
+    {
+      "entry_id": "demons_are_real_people",
+      "layer": "canonical_fact",
+      "content": "恶魔族群确实存在，有自己的语言、家庭和文明；他们和人类一样会饥饿、会害怕。",
+      "access": {"visible_to": {"faction": ["all"]}, "hidden_from": {}},
+      "confidence_policy": "fact"
+    },
+    {
+      "entry_id": "church_demon_propaganda",
+      "layer": "faction_propaganda",
+      "content": "圣焰教会宣称：恶魔是一切灾祸的根源，凡接纳恶魔者必招厄运。",
+      "access": {"visible_to": {"faction": ["watch", "church"]}, "hidden_from": {"faction": ["refugees"]}},
+      "confidence_policy": "belief_not_fact"
+    },
+    {
+      "entry_id": "massacre_at_the_pass",
+      "layer": "forbidden_knowledge",
+      "content": "二十年前，守军曾屠杀过一支前来求和的恶魔使节队——此事被教会从记录中抹去。",
+      "access": {"visible_to": {"faction": ["refugees"]}, "hidden_from": {"faction": ["watch", "church"]}},
+      "confidence_policy": "fact"
+    },
+    {
+      "entry_id": "supplies_running_low",
+      "layer": "local_rumor",
+      "content": "哨站的过冬粮只够再撑半个月，没人知道下一批补给何时能翻过雪山。",
+      "access": {"visible_to": {"region": ["frostgate"]}, "hidden_from": {}},
+      "confidence_policy": "belief_not_fact"
+    }
+  ],
+  "starting_location": "gatehouse",
+  "initial_locations": [
+    {
+      "location_id": "gatehouse",
+      "connections": [
+        {"to": "barracks", "distance": "adjacent", "noise_leak": 0.2, "visual_leak": 0.1, "description": "推开结霜的木门，进入兵营"},
+        {"to": "refugee_camp", "distance": "near", "noise_leak": 0.1, "visual_leak": 0.0, "description": "穿过结冰的吊桥，走向城墙外的难民营"}
+      ]
+    },
+    {
+      "location_id": "barracks",
+      "connections": [
+        {"to": "gatehouse", "distance": "adjacent", "noise_leak": 0.2, "visual_leak": 0.1, "description": "回到风雪呼啸的门楼"}
+      ]
+    },
+    {
+      "location_id": "refugee_camp",
+      "connections": [
+        {"to": "gatehouse", "distance": "near", "noise_leak": 0.1, "visual_leak": 0.0, "description": "沿着吊桥回到门楼"}
+      ]
+    }
+  ],
+  "initial_entities": [
+    {
+      "entity_id": "player_001",
+      "entity_type": "player",
+      "location_id": "gatehouse",
+      "zone_id": "watch_post",
+      "attributes": {"strength": 0.55, "perception": 0.65, "charisma": 0.55, "region": "frostgate"},
+      "traits": ["newcomer", "undecided"],
+      "hp": 100,
+      "max_hp": 100,
+      "stamina": 100
+    },
+    {
+      "entity_id": "npc.captain_brann",
+      "entity_type": "npc",
+      "location_id": "gatehouse",
+      "zone_id": "watch_post",
+      "attributes": {"strength": 0.75, "perception": 0.7, "faction": "watch", "region": "frostgate", "authority": "watch_authority"},
+      "traits": ["dutiful", "weary", "suspicious"]
+    },
+    {
+      "entity_id": "npc.sentry_voss",
+      "entity_type": "npc",
+      "location_id": "gatehouse",
+      "zone_id": "watch_post",
+      "attributes": {"perception": 0.7, "faction": "watch", "region": "frostgate"},
+      "traits": ["nervous", "devout", "young"]
+    },
+    {
+      "entity_id": "npc.quartermaster_hale",
+      "entity_type": "npc",
+      "location_id": "barracks",
+      "zone_id": "stores",
+      "attributes": {"perception": 0.6, "faction": "watch", "region": "frostgate"},
+      "traits": ["pragmatic", "tired", "honest"]
+    },
+    {
+      "entity_id": "npc.refugee_kaze",
+      "entity_type": "npc",
+      "location_id": "refugee_camp",
+      "zone_id": "campfire",
+      "attributes": {"charisma": 0.7, "perception": 0.65, "faction": "refugees", "region": "frostgate"},
+      "traits": ["guarded", "weary", "protective"]
+    },
+    {
+      "entity_id": "npc.refugee_old_sib",
+      "entity_type": "npc",
+      "location_id": "refugee_camp",
+      "zone_id": "campfire",
+      "attributes": {"perception": 0.7, "faction": "refugees", "region": "frostgate"},
+      "traits": ["elderly", "wise", "grieving"]
+    }
+  ],
+  "initial_relationships": [
+    {"npc_id": "npc.captain_brann", "target_id": "npc.sentry_voss", "type": "commands"},
+    {"npc_id": "npc.sentry_voss", "target_id": "npc.captain_brann", "type": "loyal"},
+    {"npc_id": "npc.captain_brann", "target_id": "npc.refugee_kaze", "type": "suspicious"},
+    {"npc_id": "npc.refugee_kaze", "target_id": "npc.refugee_old_sib", "type": "protective"},
+    {"npc_id": "npc.refugee_old_sib", "target_id": "npc.refugee_kaze", "type": "trusting"},
+    {"npc_id": "npc.captain_brann", "target_id": "player_001", "type": "wary"},
+    {"npc_id": "npc.refugee_kaze", "target_id": "player_001", "type": "cautious"}
+  ],
+  "initial_conversations": [],
+  "player_agenda_template": {
+    "current_drives": [
+      {"id": "drive_decide", "label": "弄清这里到底发生了什么，再决定站哪边", "strength": 0.6, "source": "player_declared"}
+    ],
+    "inference_mode": "reflection_only",
+    "suggestion_mode": "subtle"
+  },
+  "style_guide": {
+    "narrative_voice": "第三人称有限视角，冷峻克制，强调寒冷与不安",
+    "tone_references": ["grim_tense", "grim", "cold", "tense", "morally_grey"],
+    "prohibited_tropes": ["fourth_wall_break", "anachronistic_references", "power_fantasy_escalation"]
+  },
+  "constraints": {
+    "max_entities_per_location": 12,
+    "player_death": "incapacitated_only"
+  },
+  "campaign_drivers": [
+    {
+      "driver_id": "scarcity_xenophobia",
+      "type": "social_pressure",
+      "description": "寒冷与补给短缺把对难民的恐惧推向公开的敌意。",
+      "signals": [
+        {"condition": "entity_count >= 5", "weight": 0.4},
+        {"condition": "recent_event_count >= 6", "weight": 0.4},
+        {"condition": "tick >= 3", "weight": 0.2}
+      ],
+      "possible_events": [
+        {"event_type": "rations_cut_announcement", "probability": 0.5},
+        {"event_type": "watch_patrol_intensified", "probability": 0.5}
+      ],
+      "severity": 0.5,
+      "cooldown_ticks": 5
+    },
+    {
+      "driver_id": "border_closure",
+      "type": "social_pressure",
+      "description": "只要城门还对难民关闭，恐惧就会化作把他们拒之门外的命令。",
+      "signals": [
+        {"condition": "world.refugees_admitted == false", "weight": 0.5},
+        {"condition": "tick >= 3", "weight": 0.3},
+        {"condition": "recent_event_count >= 6", "weight": 0.2}
+      ],
+      "possible_events": [
+        {"event_type": "refugee_denied_entry", "probability": 1.0}
+      ],
+      "severity": 0.6,
+      "cooldown_ticks": 5
+    },
+    {
+      "driver_id": "watch_wary_of_refugee_ally",
+      "type": "faction_response",
+      "description": "玩家公开站到难民一边，守军开始提防这个外来者。",
+      "signals": [
+        {"condition": "stance.help_refugees", "weight": 1.0}
+      ],
+      "possible_events": [
+        {"event_type": "watch_grows_wary_of_player", "probability": 1.0}
+      ],
+      "severity": 0.5,
+      "cooldown_ticks": 8
+    },
+    {
+      "driver_id": "camp_strains_under_refugees",
+      "type": "consequence",
+      "description": "难民获准入营后，本就吃紧的过冬补给雪上加霜。",
+      "signals": [
+        {"condition": "world.refugees_admitted", "weight": 1.0}
+      ],
+      "possible_events": [
+        {"event_type": "camp_overcrowding_tension", "probability": 1.0}
+      ],
+      "severity": 0.5,
+      "cooldown_ticks": 6
+    }
+  ],
+  "world_state_vars": [
+    {
+      "var_id": "refugees_admitted",
+      "label": "难民是否获准入营",
+      "type": "bool",
+      "initial": false,
+      "mutable": true,
+      "public": true,
+      "set_by": ["watch_authority"],
+      "request_keywords": ["开门", "开城门", "开营门", "打开城门", "打开营门", "放他们进来", "放难民进来", "放他们进营", "放难民入营", "放进来", "放行", "准许入营", "准许难民"]
+    }
+  ],
+  "stance_topics": [
+    {
+      "topic_id": "help_refugees",
+      "label": "接纳难民",
+      "keywords": ["难民", "放他们", "收留", "进来", "庇护", "帮他们", "救救"]
+    },
+    {
+      "topic_id": "side_with_watch",
+      "label": "站在守军一边",
+      "keywords": ["守军", "教会", "驱逐", "赶走", "守住", "纪律", "关在外"]
+    }
+  ],
+  "rule_presets": {
+    "difficulty": "harsh",
+    "stealth_threshold_base": 0.5,
+    "combat_lethality": "non_lethal_default"
+  }
+}

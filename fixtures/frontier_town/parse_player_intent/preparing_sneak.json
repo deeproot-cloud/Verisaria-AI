@@ -1,0 +1,41 @@
+{
+  "fixture_id": "ft_commitment_002",
+  "task_type": "parse_player_intent",
+  "schema_version": "2.0",
+  "prompt_version": "parse_player_intent/v1.0.0",
+  "input": {
+    "raw_text": "我准备趁乱偷偷溜到铁匠铺后面",
+    "source": "natural_language",
+    "actor_id": "player_001",
+    "context": {
+      "current_location": "town_square",
+      "current_zone": "center",
+      "active_conversations": []
+    }
+  },
+  "expected_output": {
+    "intent_id": "intent_prep_001",
+    "source": "natural_language",
+    "raw_text": "我准备趁乱偷偷溜到铁匠铺后面",
+    "intent_type": "physical",
+    "actor_id": "player_001",
+    "target_ref": null,
+    "target_id": null,
+    "content": null,
+    "modifiers": {
+      "to_location": "blacksmith",
+      "to_zone": "storage",
+      "stealth": true
+    },
+    "commitment": "preparing",
+    "confidence": 0.75,
+    "ambiguities": [],
+    "performed_content": null,
+    "player_intent_note": "趁乱行动，不引起注意",
+    "conversation_session_id": null,
+    "timestamp": 1
+  },
+  "llm_response": {
+    "raw": "{\"intent_id\":\"intent_prep_001\",\"source\":\"natural_language\",\"raw_text\":\"我准备趁乱偷偷溜到铁匠铺后面\",\"intent_type\":\"physical\",\"actor_id\":\"player_001\",\"commitment\":\"preparing\",\"confidence\":0.75,\"ambiguities\":[],\"modifiers\":{\"to_location\":\"blacksmith\",\"to_zone\":\"storage\",\"stealth\":true},\"performed_content\":null,\"player_intent_note\":\"趁乱行动，不引起注意\",\"timestamp\":1}"
+  }
+}

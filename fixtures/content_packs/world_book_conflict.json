@@ -1,0 +1,18 @@
+{
+  "content_pack_id": "conflict_pack",
+  "schema_version": "2.0",
+  "world_premise": {"era": "test", "tone": "neutral", "central_tension": "none"},
+  "world_book": [
+    {"entry_id": "dup_entry", "layer": "canonical_fact", "content": "Fact version"},
+    {"entry_id": "dup_entry", "layer": "public_belief", "content": "Belief version"}
+  ],
+  "starting_location": "void",
+  "initial_entities": [],
+  "initial_relationships": [],
+  "initial_conversations": [],
+  "player_agenda_template": {},
+  "style_guide": {},
+  "constraints": {},
+  "campaign_drivers": [],
+  "rule_presets": {}
+}

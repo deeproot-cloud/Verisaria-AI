@@ -1,0 +1,37 @@
+{
+  "fixture_id": "ft_attempt_001",
+  "task_type": "parse_player_intent",
+  "schema_version": "2.0",
+  "prompt_version": "parse_player_intent/v1.0.0",
+  "input": {
+    "raw_text": "我试着从展示台上拿走那把短剑",
+    "source": "natural_language",
+    "actor_id": "player_001",
+    "context": {
+      "current_location": "blacksmith",
+      "current_zone": "forge_area",
+      "active_conversations": []
+    }
+  },
+  "expected_output": {
+    "intent_id": "intent_attempt_001",
+    "source": "natural_language",
+    "raw_text": "我试着从展示台上拿走那把短剑",
+    "intent_type": "physical",
+    "actor_id": "player_001",
+    "target_ref": "短剑",
+    "target_id": null,
+    "content": null,
+    "modifiers": {},
+    "commitment": "attempting",
+    "confidence": 0.65,
+    "ambiguities": [],
+    "performed_content": "从展示台上拿走短剑",
+    "player_intent_note": null,
+    "conversation_session_id": null,
+    "timestamp": 1
+  },
+  "llm_response": {
+    "raw": "{\"intent_id\":\"intent_attempt_001\",\"source\":\"natural_language\",\"raw_text\":\"我试着从展示台上拿走那把短剑\",\"intent_type\":\"physical\",\"actor_id\":\"player_001\",\"target_ref\":\"短剑\",\"target_id\":\"item.short_sword\",\"commitment\":\"attempting\",\"confidence\":0.65,\"ambiguities\":[],\"performed_content\":\"从展示台上拿走短剑\",\"timestamp\":1}"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "fixture_id": "ft_quickcmd_001",
+  "task_type": "parse_player_intent",
+  "schema_version": "2.0",
+  "prompt_version": "parse_player_intent/v1.0.0",
+  "input": {
+    "raw_text": "/examine short_sword",
+    "source": "quick_command",
+    "actor_id": "player_001",
+    "context": {
+      "current_location": "blacksmith",
+      "current_zone": "forge_area",
+      "active_conversations": []
+    }
+  },
+  "expected_output": {
+    "intent_id": "intent_qcmd_001",
+    "source": "quick_command",
+    "raw_text": "/examine short_sword",
+    "intent_type": "look",
+    "actor_id": "player_001",
+    "target_ref": "short_sword",
+    "target_id": null,
+    "content": null,
+    "modifiers": {},
+    "commitment": "committed",
+    "confidence": 0.99,
+    "ambiguities": [],
+    "performed_content": "检视短剑",
+    "player_intent_note": null,
+    "conversation_session_id": null,
+    "timestamp": 1
+  },
+  "llm_response": {
+    "raw": "{\"intent_id\":\"intent_qcmd_001\",\"source\":\"quick_command\",\"raw_text\":\"/examine short_sword\",\"intent_type\":\"look\",\"actor_id\":\"player_001\",\"target_ref\":\"short_sword\",\"target_id\":\"item.short_sword\",\"commitment\":\"committed\",\"confidence\":0.99,\"ambiguities\":[],\"performed_content\":\"检视短剑\",\"timestamp\":1}"
+  }
+}

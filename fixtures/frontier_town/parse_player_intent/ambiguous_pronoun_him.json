@@ -1,0 +1,38 @@
+{
+  "fixture_id": "ft_ambig_001",
+  "task_type": "parse_player_intent",
+  "schema_version": "2.0",
+  "prompt_version": "parse_player_intent/v1.0.0",
+  "input": {
+    "raw_text": "对他说话",
+    "source": "natural_language",
+    "actor_id": "player_001",
+    "context": {
+      "current_location": "town_square",
+      "current_zone": "center",
+      "active_conversations": [],
+      "nearby_entities": ["npc.guard_b", "npc.ele", "npc.blacksmith"]
+    }
+  },
+  "expected_output": {
+    "intent_id": "intent_ambig_001",
+    "source": "natural_language",
+    "raw_text": "对他说话",
+    "intent_type": "speech",
+    "actor_id": "player_001",
+    "target_ref": "他",
+    "target_id": null,
+    "content": "说话",
+    "modifiers": {},
+    "commitment": "committed",
+    "confidence": 0.55,
+    "ambiguities": ["'他'指代不明：附近可能有 guard_b, ele, blacksmith"],
+    "performed_content": "说话",
+    "player_intent_note": null,
+    "conversation_session_id": null,
+    "timestamp": 1
+  },
+  "llm_response": {
+    "raw": "{\"intent_id\":\"intent_ambig_001\",\"source\":\"natural_language\",\"raw_text\":\"对他说话\",\"intent_type\":\"speech\",\"actor_id\":\"player_001\",\"target_ref\":\"他\",\"content\":\"说话\",\"commitment\":\"committed\",\"confidence\":0.55,\"ambiguities\":[\"'他'指代不明：附近可能有 guard_b, ele, blacksmith\"],\"performed_content\":\"说话\",\"timestamp\":1}"
+  }
+}
