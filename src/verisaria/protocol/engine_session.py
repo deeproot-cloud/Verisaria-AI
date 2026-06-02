@@ -60,11 +60,25 @@ class EngineSession:
         instead of freezing. Returns the final snapshot; the prior buffered sink is
         restored afterward."""
         prev = self._game._event_sink
-        self._game._event_sink = on_event
+        substantive = 0
+
+        def sink(ev: protocol.Event) -> None:
+            nonlocal substantive
+            if not isinstance(ev, protocol.Progress):
+                substantive += 1
+            on_event(ev)
+
+        self._game._event_sink = sink
         try:
-            self._dispatch(command)
+            text = self._dispatch(command)
         finally:
             self._game._event_sink = prev
+        # An early-return turn (parse failed / can't do that / clarification
+        # re-prompt) produces a feedback STRING but no in-world events — surface it
+        # as a Notice so the frontend isn't silent (the engine's string return is
+        # otherwise dropped by structured frontends).
+        if substantive == 0 and text and text.strip():
+            on_event(protocol.Notice(tick=self._game.world.state.tick, text=text))
         return self.snapshot()
 
     def _dispatch(self, command: protocol.Command) -> str:

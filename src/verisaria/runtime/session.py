@@ -301,7 +301,7 @@ class GameSession:
                 return f"[Preview] {action.action_type.value}: {action.params}"
 
             if interaction_result.action is None:
-                return "You consider your options but take no action."
+                return "你想了想，没有采取任何行动。"
 
             action = interaction_result.action
 
@@ -330,7 +330,7 @@ class GameSession:
             resolution = self.rules_engine.resolve(action, self.world.state)
 
             if not resolution.can_execute:
-                return f"You cannot do that: {resolution.reason}"
+                return f"你没法那么做：{resolution.reason}"
 
             if resolution.requires_arbiter:
                 return self._handle_arbiter_action(action)
@@ -364,7 +364,7 @@ class GameSession:
         if resolution is None:
             resolution = self.rules_engine.resolve(action, self.world.state)
             if not resolution.can_execute:
-                return f"You cannot do that: {resolution.reason}"
+                return f"你没法那么做：{resolution.reason}"
             if resolution.requires_arbiter:
                 return self._handle_arbiter_action(action)
 

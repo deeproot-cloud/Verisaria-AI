@@ -61,6 +61,8 @@ def render_event(ev: P.Event) -> str | None:
         opts = "   ".join(f"{i}) {_esc(o)}" for i, o in enumerate(ev.options, 1))
         tail = f"\n[dim]{opts}[/]" if opts else ""
         return f"{tick}[{RED}]{_esc(ev.question)}[/]{tail}"
+    if isinstance(ev, P.Notice):
+        return f"[dim]· {_esc(ev.text)}[/]"
     if isinstance(ev, P.Error):
         return f"{tick}[{RED}][错误] {_esc(ev.message)}[/]"
     # TickAdvanced, SpeechToken: not shown as log lines.

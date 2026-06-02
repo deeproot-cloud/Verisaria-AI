@@ -85,3 +85,36 @@ def test_submit_streaming_delivers_events_live(tmp_path):
     assert snap.tick > 0
     # the live sink was temporary — engine restored to its prior sink afterward
     assert es.game._event_sink is not live.append
+
+
+def test_submit_streaming_surfaces_feedback_as_notice(tmp_path):
+    """A turn that produces only a feedback string (parse failed / can't do that /
+    clarification re-prompt) and no in-world events must surface that string as a
+    Notice — otherwise the TUI is silent (real bug: a plea produced 0 visible output)."""
+    from verisaria.engine.intent import ClarificationRequest
+
+    es = _es(tmp_path)
+    es.game.intent_parser.parse = lambda raw_text, **kw: ClarificationRequest(
+        request_id="c", original_input=raw_text,
+        clarifying_question="我没理解你的意思", ambiguity_type="parse_failed",
+    )
+    seen: list = []
+    es.submit_streaming(P.SubmitInput("队长，开城门吧"), on_event=seen.append)
+
+    notices = [e for e in seen if isinstance(e, P.Notice)]
+    assert notices and "我没理解" in notices[0].text
+
+
+def test_substantive_turn_emits_no_notice(tmp_path):
+    """A normal turn (events fired) must NOT also emit a Notice for its narrative."""
+    es = _es(tmp_path)
+    es.game.intent_parser.parse = lambda raw_text, **kw: ParsedIntent(
+        intent_id="i", source="natural_language", raw_text=raw_text,
+        intent_type=ActionType.MOVEMENT, actor_id="player_001", target_id=None,
+        content=None, modifiers={"to_location": "refugee_camp"},
+        commitment=CommitmentLevel.COMMITTED, confidence=0.9,
+        performed_content=raw_text, timestamp=0,
+    )
+    seen: list = []
+    es.submit_streaming(P.SubmitInput("我去难民营"), on_event=seen.append)
+    assert not any(isinstance(e, P.Notice) for e in seen)

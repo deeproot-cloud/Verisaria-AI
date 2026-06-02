@@ -92,3 +92,8 @@ def test_summarize_event_plain_text():
         tick=1, npc_id="n", name="brann",
         descriptor=P.relationship_descriptor("suspicion", 0.5), delta=0.2))
     assert "brann" in rs and "+0.20" in rs
+
+
+def test_notice_rendered_dim():
+    out = R.render_event(P.Notice(tick=4, text="队长不在这里"))
+    assert out is not None and "队长不在这里" in out and "dim" in out

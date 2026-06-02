@@ -229,6 +229,12 @@ class TickAdvanced(Event):
 
 
 @dataclass(frozen=True)
+class Notice(Event):
+    text: str   # engine feedback when a turn produced no in-world events
+                # (parse failed / can't do that / clarification re-prompt)
+
+
+@dataclass(frozen=True)
 class Error(Event):
     message: str
 
