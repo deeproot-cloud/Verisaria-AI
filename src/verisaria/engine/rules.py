@@ -70,7 +70,13 @@ class RulesEngine:
         content = action.params.get("content", "")
         volume = action.params.get("volume", "normal")
         target = f" 对 {action.target_id}" if action.target_id else ""
-        summary = f"{action.actor_id}{target} 说: {content}"
+        # Neutral, objective summary — the verbatim line lives in canonical_facts
+        # (the narrator reads it from there). Keeping content OUT of the summary also
+        # stops the Event "no subjective motive" validator from tripping on
+        # 因为/为了/意图/计划 that legitimately appear inside dialogue (a real bug: a
+        # whole tick aborted mid-conversation when an NPC's reply contained "因为").
+        spoke = {"whisper": "低声说话", "shout": "大声说话"}.get(volume, "说话")
+        summary = f"{action.actor_id}{target} {spoke}"
         return ResolutionResult(
             can_execute=True,
             event_type=EventType.SPEECH,

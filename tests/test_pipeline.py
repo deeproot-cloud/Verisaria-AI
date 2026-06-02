@@ -130,7 +130,7 @@ class TestMinimalPipeline:
         resolution = rules.resolve(action, world.state)
         assert resolution.can_execute
         assert resolution.event_type == EventType.SPEECH
-        assert "快离开这儿" in resolution.summary
+        assert "快离开这儿" not in resolution.summary  # neutral summary; content in facts
 
         event = world.commit_action(action)
         assert event.event_type == EventType.SPEECH

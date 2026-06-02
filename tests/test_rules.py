@@ -64,7 +64,8 @@ class TestSpeechRules:
         result = rules.resolve(action, world_state)
         assert result.can_execute
         assert result.event_type == EventType.SPEECH
-        assert "快离开" in result.summary
+        assert result.canonical_facts["content"] == "快离开"  # content in facts…
+        assert "快离开" not in result.summary                 # …summary stays neutral
         assert result.canonical_facts["volume"] == "low"
         assert not result.requires_arbiter
 
@@ -191,3 +192,24 @@ class TestCombatRules:
         assert result.can_execute
         assert result.event_type == EventType.COMBAT
         assert "Combat Subsystem" in result.reason
+
+
+def test_speech_summary_is_neutral_even_when_dialogue_has_motive_words(rules, world_state):
+    """Real bug: a dialogue line containing 因为/为了 made the speech Event's summary
+    trip the schema's 'no subjective motive' validator → the whole tick aborted
+    mid-conversation. The summary must stay neutral; the verbatim line lives in
+    canonical_facts and the resulting Event must construct cleanly."""
+    from verisaria.engine.schemas import Event
+
+    line = "因为那年的雪太大，为了活命我们才逃出来。"
+    action = Action(
+        action_id="a", actor_id="npc.kaze", action_type=ActionType.SPEECH,
+        target_id="player_001", params={"content": line, "volume": "normal"}, tick=1,
+    )
+    res = rules.resolve(action, world_state)
+    assert "因为" not in res.summary and "为了" not in res.summary
+    assert res.canonical_facts["content"] == line   # content preserved for narrator
+    # the summary must build a valid Event (the validator must not raise)
+    Event(event_id="e", event_type=EventType.SPEECH, actor_id="npc.kaze",
+          tick=1, location_id="refugee_camp", summary=res.summary,
+          canonical_facts=res.canonical_facts)
