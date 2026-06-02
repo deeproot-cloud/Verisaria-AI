@@ -67,6 +67,21 @@ def render_event(ev: P.Event) -> str | None:
     return None
 
 
+def summarize_event(ev: P.Event) -> str:
+    """A compact, plain-text one-liner for the run log (no markup)."""
+    name = type(ev).__name__
+    if isinstance(ev, P.RelationshipShifted):
+        return f"{name} {ev.name}: {ev.descriptor.label} {ev.delta:+.2f}"
+    for attr in ("line", "message", "text", "summary", "question", "label",
+                 "to_loc", "value", "token"):
+        v = getattr(ev, attr, None)
+        if v not in (None, ""):
+            who = getattr(ev, "name", getattr(ev, "npc_id", getattr(ev, "var_id", "")))
+            who = f" {who}" if who else ""
+            return f"{name}{who}: {v}"
+    return name
+
+
 def _bar(value: float, width: int = 5) -> str:
     """A tiny 0..1 gauge: ▓ filled, ░ empty."""
     filled = max(0, min(width, round(value * width)))

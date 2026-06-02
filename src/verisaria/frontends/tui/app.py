@@ -7,6 +7,9 @@ Side map/focus panels come in v3 — see docs/design/tui-design.md.
 """
 from __future__ import annotations
 
+import logging
+import time
+
 from rich.text import Text
 
 from textual import work
@@ -19,6 +22,7 @@ from verisaria.protocol.engine_session import EngineSession
 from verisaria.frontends.tui import render as R
 
 _PROMPT = "说点什么，或做点什么…（回车提交）"
+log = logging.getLogger("verisaria.tui")  # silent unless a handler is attached (--log)
 
 
 def _m(markup: str) -> Text:
@@ -43,6 +47,7 @@ class VerisariaApp(App):
         super().__init__()
         self.engine = engine
         self._busy = False
+        self._n_events = 0
 
     def compose(self) -> ComposeResult:
         yield Static(id="status")
@@ -73,24 +78,33 @@ class VerisariaApp(App):
         inp.disabled = True
         inp.placeholder = "（领会中…）"
         self._log(f"[{R.AMBER}]> {text}[/]")
+        log.info("CMD input: %r", text)
         self._run_tick(text)
 
     # -- the slow tick runs off the UI thread; events stream back live --
     @work(thread=True, exclusive=True)
     def _run_tick(self, text: str) -> None:
+        t0 = time.monotonic()
+        self._n_events = 0
         try:
             snap = self.engine.submit_streaming(
                 P.SubmitInput(text),
                 on_event=lambda ev: self.call_from_thread(self._on_event, ev),
             )
         except Exception as exc:  # a frontend must never die on an engine hiccup
+            log.exception("tick failed for input %r", text)
             self.call_from_thread(self._log, f"[{R.RED}][错误] {exc}[/]")
             snap = self.engine.snapshot()
+        dt = time.monotonic() - t0
+        log.info("tick done in %.1fs (%d events) @tick=%s loc=%s",
+                 dt, self._n_events, snap.tick, snap.location.id)
         self.call_from_thread(self._refresh_panels, snap)
         self.call_from_thread(self._finish_tick)
 
     # -- main-thread UI updates --
     def _on_event(self, ev: P.Event) -> None:
+        self._n_events += 1
+        log.info("EV [t%s] %s", ev.tick, R.summarize_event(ev))
         markup = R.render_event(ev)
         if markup:
             self._log(markup)

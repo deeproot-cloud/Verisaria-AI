@@ -28,6 +28,7 @@ _test_replay*/
 _playtest_saves/
 _tmp*/
 
-# Transient playtest / benchmark outputs
+# Transient playtest / benchmark / run-log outputs
 playtest_out.txt
 mm_*_out.txt
+*.log

@@ -82,3 +82,13 @@ def test_render_world_marks_flags():
     out = R.render_world(snap)
     assert "难民入营" in out and "✗" in out
     assert "城门开启" in out and "✓" in out
+
+
+def test_summarize_event_plain_text():
+    assert "你好" in R.summarize_event(P.PlayerSpoke(tick=1, line="你好"))
+    s = R.summarize_event(P.NpcSpoke(tick=1, npc_id="npc.brann", name="brann", line="哼"))
+    assert "brann" in s and "哼" in s and "[" not in s  # plain, no markup
+    rs = R.summarize_event(P.RelationshipShifted(
+        tick=1, npc_id="n", name="brann",
+        descriptor=P.relationship_descriptor("suspicion", 0.5), delta=0.2))
+    assert "brann" in rs and "+0.20" in rs
