@@ -301,6 +301,7 @@ class LLMArbiter:
             state_changes_proposed=[],
             confidence=0.5,
             narration_hint="系统默认裁决。",
+            is_fallback=True,  # not a real verdict — LLM was unavailable
         )
 
         return ValidatedOutcome(

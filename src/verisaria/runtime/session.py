@@ -1351,11 +1351,17 @@ class GameSession:
         return True
 
     def _authority_npc_for(self, set_by: list) -> str | None:
-        """The NPC whose `authority` attribute holds one of the `set_by` roles."""
+        """The NPC authorized to set a world var. A ``set_by`` entry matches either
+        the NPC's ``authority`` attribute (a role, e.g. ``"memory_authority"``) OR
+        the NPC's entity_id directly (e.g. ``"npc.clinician_oro"``) — content authors
+        may use whichever; both resolve to the same NPC."""
         if not set_by:
             return None
+        roles = set(set_by)
         for eid, e in self.world.state.entities.items():
-            if e.entity_type == "npc" and (e.attributes or {}).get("authority") in set_by:
+            if e.entity_type != "npc":
+                continue
+            if eid in roles or (e.attributes or {}).get("authority") in roles:
                 return eid
         return None
 
@@ -1537,15 +1543,26 @@ class GameSession:
             verdict = outcome.arbiter_output.outcome
             fact = (outcome.arbiter_output.established_fact or "").strip()
             ledger_now = [f.text for f in self.fact_ledger.relevant(var_id)]
+            fb = "  ⚠FALLBACK(LLM不可用)" if outcome.arbiter_output.is_fallback else ""
             _clog.info(
-                "[t%s] world-change %s by %s → %s | flag %s→%s%s | reason=%r | ledger(%s)=%s",
-                self.world.state.tick, var_id, authority_npc, verdict,
+                "[t%s] world-change %s by %s → %s%s | flag %s→%s%s | reason=%r | ledger(%s)=%s",
+                self.world.state.tick, var_id, authority_npc, verdict, fb,
                 flag_before, flag_after,
                 ("" if flag_before == flag_after else "  ⟳FLIP"),
                 (outcome.arbiter_output.reason or "")[:80],
                 var_id,
                 ledger_now,
             )
+            # All world.* changes this adjudication applied / rejected — so a
+            # collateral flip (e.g. memory_purge_halted alongside the requested var)
+            # is visible, not a mystery in the final /world.
+            applied = [(c.field, c.delta) for c in outcome.accepted_state_changes
+                       if c.field.startswith("world.")]
+            rejected = [c.field for c in outcome.rejected_state_changes
+                        if c.field.startswith("world.")]
+            if applied or rejected:
+                _clog.info("[t%s]   world-changes applied=%s rejected=%s",
+                           self.world.state.tick, applied, rejected)
             if verdict == "partial_success":
                 _clog.info("[t%s]   established_fact=%r", self.world.state.tick,
                            fact or "(none — arbiter stated no condition)")

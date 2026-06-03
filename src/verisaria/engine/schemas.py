@@ -386,6 +386,9 @@ class ArbiterOutput(BaseModel):
     # or condition just established (LLM-authored), remembered by the FactLedger for
     # later arbitration to build on. Empty otherwise. See emergent-fact-ledger.md.
     established_fact: str | None = None
+    # True when this is a deterministic default verdict because the LLM was
+    # unavailable — NOT a real adjudication (so logs/diagnostics can flag it).
+    is_fallback: bool = False
 
     @model_validator(mode="after")
     def validate_redirect_has_target(self):
