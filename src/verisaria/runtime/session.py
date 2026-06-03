@@ -169,6 +169,12 @@ class GameSession:
         self.running = True
         self.player_id = "player_001"
 
+        # Seed author-declared opening relationships into the store so they
+        # actually influence runtime — notably the arbiter's Channel-C rulings,
+        # which read the live relationship snapshot (previously initial_relationships
+        # only fed /who·/talk display labels, so opening stances had zero effect).
+        self._seed_initial_relationships()
+
         # Player Agenda (after player_id is set). Pack-declared stance topics let
         # repeated player intents cluster into stable, world-readable stances.
         self.agenda_service = AgendaService(
@@ -1339,6 +1345,51 @@ class GameSession:
             if e.entity_type == "npc" and (e.attributes or {}).get("authority") in set_by:
                 return eid
         return None
+
+    # Opening-relationship `type` → a modest stance lean. Authors get precise
+    # control by writing an explicit `dimensions` map on the relationship; this
+    # table is a best-effort fallback so a type-only entry still tilts the stance.
+    # Magnitudes are small (opening leanings, ~0.1–0.2) so appraisal can still move
+    # them; an unknown type falls back to a faint familiarity (they're acquainted).
+    _REL_TYPE_SEED: dict[str, dict[str, float]] = {
+        "loyal":        {"trust": 0.2, "respect": 0.15},
+        "trusting":     {"trust": 0.2},
+        "trusts":       {"trust": 0.2},
+        "commands":     {"respect": 0.15, "familiarity": 0.15},
+        "protective":   {"affection": 0.2, "familiarity": 0.1},
+        "fond":         {"affection": 0.2},
+        "respects":     {"respect": 0.2},
+        "suspicious":   {"suspicion": 0.2},
+        "wary":         {"suspicion": 0.18},
+        "cautious":     {"suspicion": 0.12},
+        "formal_suspicion":            {"suspicion": 0.2},
+        "professional_defensiveness":  {"suspicion": 0.15},
+        "politically_cautious":        {"suspicion": 0.12, "respect": 0.08},
+        "performative_politeness":     {"suspicion": 0.12},
+        "polite_hostility":            {"suspicion": 0.2, "fear": 0.05},
+        "hostile":      {"suspicion": 0.25, "fear": 0.05},
+        "afraid":       {"fear": 0.2},
+        "procedural_neutrality":       {"familiarity": 0.1},
+        "testing":      {"suspicion": 0.1, "trust": 0.05},
+        "testing_desperation":         {"suspicion": 0.1, "trust": 0.05, "familiarity": 0.05},
+        "guarded_hope": {"trust": 0.1, "suspicion": 0.1},
+    }
+    _REL_TYPE_DEFAULT = {"familiarity": 0.1}
+
+    def _seed_initial_relationships(self) -> None:
+        """Seed the RelationshipStore from the pack's ``initial_relationships``.
+        Explicit ``dimensions`` win; otherwise the ``type`` label maps to a modest
+        lean (``_REL_TYPE_SEED``). ``apply`` from a fresh all-zero store yields the
+        given values exactly (a +δ from 0 scales by 1−0), so this sets, not nudges."""
+        for rel in getattr(self.pack, "initial_relationships", []) or []:
+            npc_id = rel.get("npc_id")
+            target_id = rel.get("target_id")
+            if not npc_id or not target_id:
+                continue
+            dims = rel.get("dimensions") or self._REL_TYPE_SEED.get(
+                rel.get("type", ""), self._REL_TYPE_DEFAULT
+            )
+            self.relationship_store.apply(npc_id, target_id, dims, tick=0)
 
     def _world_vars_for_arbiter(self) -> list[dict[str, Any]]:
         """Mutable world vars enriched with the authority NPC and that NPC's
