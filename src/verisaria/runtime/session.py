@@ -28,6 +28,7 @@ from verisaria.engine.llm import (
 from verisaria.engine.memory import BeliefEngine, MemoryCompressor, MemoryStore
 from verisaria.engine.npc_runtime import NPCActionGenerator, NPCInteractionScheduler
 from verisaria.engine.appraisal import RelationshipAppraiser, RelationshipStore
+from verisaria.engine.fact_ledger import FactLedger
 from verisaria.engine.npc_dialogue import NPCDialogueGenerator
 from verisaria.engine.observation import ObservationDispatcher
 from verisaria.engine.persistence import PersistenceLayer
@@ -137,6 +138,10 @@ class GameSession:
         # clamped relationship deltas, so player choices have consequence.
         self.relationship_appraiser = RelationshipAppraiser(self.llm_orchestrator)
         self.relationship_store = RelationshipStore()
+        # Emergent fact ledger (Channel C): intermediate facts the arbiter
+        # establishes on partial_success, reused by later arbitration. See
+        # docs/design/emergent-fact-ledger.md.
+        self.fact_ledger = FactLedger()
         # Appraisal runs off the player's critical path for real providers
         # (PLAY-1): the tick returns immediately and the appraisal completes in
         # the background (hidden behind human think-time), flushed before any read
@@ -1861,6 +1866,7 @@ class GameSession:
                     "action_generator": self.npc_action_generator.get_state(),
                     "interaction_scheduler": self.npc_interaction_scheduler.get_state(),
                     "relationship_store": self.relationship_store.get_state(),
+                    "fact_ledger": self.fact_ledger.get_state(),
                 },
             )
             return f"Saved: {save_data.save_id}"
@@ -1914,6 +1920,8 @@ class GameSession:
                     self.npc_interaction_scheduler.load_state(npc["interaction_scheduler"])
                 if npc and "relationship_store" in npc:
                     self.relationship_store.load_state(npc["relationship_store"])
+                if npc and "fact_ledger" in npc:
+                    self.fact_ledger.load_state(npc["fact_ledger"])
 
                 return f"Loaded: {arg} (tick {self.world.state.tick})"
             except FileNotFoundError:
