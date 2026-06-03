@@ -145,6 +145,40 @@ def test_tui_responsive_collapses_secondary_panels(tmp_path):
     assert narrow["events"]                   # core loop survives
 
 
+def test_tui_focus_panel_digests_witnessed_npc_lines(tmp_path):
+    """An NpcSpoke is remembered per-NPC; while that NPC is present the focus panel
+    shows «你对该 NPC 的了解» built from the lines the player actually saw."""
+    es = EngineSession.start(PACK, save_dir=str(tmp_path), llm_backend="fake")
+    app = VerisariaApp(es)
+    out: dict = {}
+
+    async def scenario():
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app._on_event(P.NpcSpoke(
+                tick=1, npc_id="npc.captain_brann", name="队长布兰", line="我守的是这道门。"))
+            out["last"] = app._last_npc_spoke
+            out["buf"] = list(app._npc_lines.get("npc.captain_brann", []))
+            snap = P.WorldSnapshot(
+                tick=1, pacing="normal",
+                location=P.LocationView(id="gatehouse", name="门楼", description="风灌进来。"),
+                present=[P.PresentEntity(id="npc.captain_brann", name="队长布兰", type="npc")],
+                agenda=P.AgendaView(drives=["弄清真相"]),
+            )
+            out["focused"] = app._focus_markup(snap)
+            # walk away → the NPC is no longer present → scene framing returns
+            out["away"] = app._focus_markup(
+                P.WorldSnapshot(tick=2, pacing="normal",
+                                location=P.LocationView(id="barracks", description="空床。")))
+
+    asyncio.run(scenario())
+
+    assert out["last"] == "npc.captain_brann"
+    assert "我守的是这道门。" in out["buf"]
+    assert "你对队长布兰的了解" in out["focused"] and "我守的是这道门。" in out["focused"]
+    assert "你对队长布兰的了解" not in out["away"] and "空床。" in out["away"]
+
+
 def test_tui_god_view_toggles_left_column(tmp_path):
     """Ctrl+G swaps the left column (map+agenda) for the DEBUG god-view, which
     renders each co-located NPC's real state; toggling again restores it."""

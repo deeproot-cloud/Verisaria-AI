@@ -129,6 +129,27 @@ def test_render_focus_shows_scene_then_goals():
     assert "接纳难民" in out and "弄清这里发生了什么" in out and "队长会为谁担风险" in out
 
 
+def test_render_focus_focused_shows_witnessed_npc_knowledge():
+    """Talking to an NPC: goals + «你对该 NPC 的了解» (witnessed lines), scene drops."""
+    snap = P.WorldSnapshot(
+        tick=1, pacing="normal",
+        location=P.LocationView(id="x", description="风从箭垛灌进来。"),
+        central_tension="补给将尽。",
+        agenda=P.AgendaView(drives=["弄清真相"]),
+    )
+    out = R.render_focus(snap, focus_name="队长布兰", known=["我守的是这道门。", "你信教会那套吗？"])
+    assert "你对队长布兰的了解" in out
+    assert "我守的是这道门。" in out and "你信教会那套吗？" in out
+    assert "弄清真相" in out                 # goals still shown
+    assert "风从箭垛灌进来。" not in out      # scene yields to the NPC digest
+
+
+def test_render_focus_focused_with_no_lines_yet():
+    snap = P.WorldSnapshot(tick=1, pacing="normal", location=P.LocationView(id="x"))
+    out = R.render_focus(snap, focus_name="哨兵伏斯", known=[])
+    assert "你对哨兵伏斯的了解" in out and "还没怎么打过交道" in out
+
+
 def test_render_focus_goals_only_when_no_scene():
     snap = P.WorldSnapshot(
         tick=1, pacing="normal", location=P.LocationView(id="x"),

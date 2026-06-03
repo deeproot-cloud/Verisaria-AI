@@ -68,6 +68,8 @@ class VerisariaApp(App):
         self._names: dict[str, str] = {}        # npc_id → display name (from snapshot)
         self._god = False                       # DEBUG god-view toggled on?
         self._last_snap: P.WorldSnapshot | None = None
+        self._npc_lines: dict[str, list[str]] = {}  # witnessed lines per NPC (A5)
+        self._last_npc_spoke: str | None = None     # who you're focused on
 
     def compose(self) -> ComposeResult:
         yield Static(id="status")
@@ -154,6 +156,11 @@ class VerisariaApp(App):
             return
         if isinstance(ev, P.NpcSpoke):
             self._stream_clear(ev.npc_id)
+            # remember what you've witnessed this NPC say (for «你对该 NPC 的了解»)
+            buf = self._npc_lines.setdefault(ev.npc_id, [])
+            buf.append(ev.line)
+            del buf[:-6]  # keep the 6 most recent
+            self._last_npc_spoke = ev.npc_id
         markup = R.render_event(ev)
         if markup:
             self._log(markup)
@@ -179,11 +186,21 @@ class VerisariaApp(App):
         self._last_snap = snap
         self.query_one("#status", Static).update(_m(R.render_status(snap)))
         self.query_one("#map", Static).update(_m(R.render_map(snap)))
-        self.query_one("#agenda", Static).update(_m(R.render_focus(snap)))
+        self.query_one("#agenda", Static).update(_m(self._focus_markup(snap)))
         self.query_one("#nearby", Static).update(_m(R.render_nearby(snap)))
         self.query_one("#world", Static).update(_m(R.render_world(snap)))
         if self._god:  # keep the debug view current as the world changes
             self._refresh_godview()
+
+    def _focus_markup(self, snap: P.WorldSnapshot) -> str:
+        """«处境 / 焦点»: when the NPC you last heard is still here, show your goals
+        + what you've witnessed them say; otherwise fall back to scene framing."""
+        names = {e.id: e.name for e in snap.present}
+        focus = self._last_npc_spoke if self._last_npc_spoke in names else None
+        if focus is not None:
+            return R.render_focus(
+                snap, focus_name=names[focus], known=self._npc_lines.get(focus, []))
+        return R.render_focus(snap)
 
     # -- DEBUG god-view: swap the left column to each co-located NPC's real state --
     def action_toggle_god(self) -> None:

@@ -108,32 +108,56 @@ def render_map(snapshot: P.WorldSnapshot) -> str:
     return "\n".join(lines)
 
 
-def render_focus(snapshot: P.WorldSnapshot) -> str:
-    """Left panel «处境 / 焦点» — context first (where you are + the pack's central
-    tension), then your goals (confirmed stances + drives + open questions). The
-    DEBUG god-view is the *other* face of this slot (Ctrl+G)."""
-    lines: list[str] = []
+def _goal_lines(agenda: P.AgendaView | None) -> list[str]:
+    """The player's agenda as markup rows (confirmed stances, drives, open questions)."""
+    if agenda is None:
+        return []
+    out: list[str] = []
+    for stance in agenda.confirmed_stances:
+        out.append(f"[{AMBER}]◆ {_esc(stance)}[/]")
+    for drive in agenda.drives:
+        out.append(f"· {_esc(drive)}")
+    if agenda.open_questions:
+        out.append("[dim]未解之问[/]")
+        for q in agenda.open_questions:
+            out.append(f"  [dim]? {_esc(q)}[/]")
+    return out
 
-    # — 处境: scene framing —
+
+def render_focus(
+    snapshot: P.WorldSnapshot,
+    focus_name: str | None = None,
+    known: list[str] | None = None,
+) -> str:
+    """Left panel «处境 / 焦点», context-sensitive (tui-design §3). The DEBUG
+    god-view is the *other* face of this slot (Ctrl+G).
+
+    - Talking to an NPC (``focus_name`` set) → your goals + «你对该 NPC 的了解»:
+      a digest of what you've ACTUALLY witnessed them say (A5 by construction —
+      the frontend only ever held the lines it displayed).
+    - Otherwise (wandering) → scene framing (where you are + central tension) +
+      your goals."""
+    goals = _goal_lines(snapshot.agenda)
+
+    if focus_name:
+        lines = list(goals)
+        if goals:
+            lines.append("")
+        lines.append(f"[{AMBER}]你对{_esc(focus_name)}的了解[/]")
+        if known:
+            for ln in known:
+                lines.append(f"  [dim]“[/]{_esc(ln)}[dim]”[/]")
+        else:
+            lines.append("[dim]  还没怎么打过交道。[/]")
+        return "\n".join(lines)
+
+    lines = []
     desc = (snapshot.location.description or "").strip()
     if desc:
         lines.append(f"[{PARCHMENT} italic]{_esc(desc)}[/]")
     tension = (snapshot.central_tension or "").strip()
     if tension:
         lines.append(f"[{RED}]◈ {_esc(tension)}[/]")
-
-    # — 焦点: the player's agenda —
-    ag = snapshot.agenda
-    goals: list[str] = []
-    if ag is not None:
-        for stance in ag.confirmed_stances:
-            goals.append(f"[{AMBER}]◆ {_esc(stance)}[/]")
-        for drive in ag.drives:
-            goals.append(f"· {_esc(drive)}")
-        if ag.open_questions:
-            goals.append("[dim]未解之问[/]")
-            for q in ag.open_questions:
-                goals.append(f"  [dim]? {_esc(q)}[/]")
     if lines and goals:
         lines.append("")  # blank spacer between 处境 and 焦点
     lines.extend(goals or (["[dim]尚无明确目标。[/]"] if not lines else []))
