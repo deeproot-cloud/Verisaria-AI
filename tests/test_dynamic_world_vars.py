@@ -117,6 +117,34 @@ def test_dynamic_var_routes_a_request_by_npc_id_set_by(tmp_path):
     assert g._world_change_request(action) == ("door_unbarred", "npc.sentry_voss")
 
 
+def test_dynamic_var_routes_even_with_no_keyword_match(tmp_path):
+    """A GM-invented var with empty/mismatched keywords still routes when the player
+    addresses its authority NPC substantively — the arbiter then judges relevance."""
+    g = _session(tmp_path)
+    voss = g.world.state.get_entity("npc.sentry_voss")
+    player = g.world.state.get_entity(g.player_id)
+    voss.location_id = player.location_id
+    g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="statement_filed", set_by=["npc.sentry_voss"]))  # NO keywords
+    action = Action(action_id="a", actor_id=g.player_id, action_type=ActionType.SPEECH,
+                    target_id="npc.sentry_voss", tick=1,
+                    params={"content": "请你把那份声明签了交给我。"})
+    assert g._world_change_request(action) == ("statement_filed", "npc.sentry_voss")
+
+
+def test_pack_var_still_needs_keyword_match(tmp_path):
+    """The relaxed routing is scoped to dynamic vars: a pack var with no keyword
+    match (and no dynamic var for that NPC) still doesn't route — behavior preserved."""
+    g = _session(tmp_path)
+    captain = g.world.state.get_entity("npc.captain_brann")
+    player = g.world.state.get_entity(g.player_id)
+    captain.location_id = player.location_id
+    action = Action(action_id="a", actor_id=g.player_id, action_type=ActionType.SPEECH,
+                    target_id="npc.captain_brann", tick=1,
+                    params={"content": "今天天气真好啊。"})
+    assert g._world_change_request(action) is None
+
+
 def test_dynamic_var_survives_save_load(tmp_path):
     g = _session(tmp_path)
     g._register_dynamic_prerequisite(NewPrerequisite(

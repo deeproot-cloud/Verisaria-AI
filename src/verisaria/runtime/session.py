@@ -1490,6 +1490,7 @@ class GameSession:
         # command to change it — don't route it to the world-change adjudication.
         if self._looks_like_question(content):
             return None
+        dynamic_fallback: tuple[str, str] | None = None
         for var_id, spec in self._world_var_specs.items():
             if spec.get("mutable", True) is False:
                 continue
@@ -1498,7 +1499,13 @@ class GameSession:
                 continue
             if any(k in content for k in (spec.get("request_keywords") or [])):
                 return (var_id, target)
-        return None
+            # Dynamic (GM-invented) vars have untunable keywords, so a keyword miss
+            # would silently strand them. If the player addresses such a var's
+            # authority NPC with a substantive (non-question) request, route it and
+            # let the arbiter judge relevance, rather than failing into mere chatter.
+            if spec.get("dynamic") and dynamic_fallback is None:
+                dynamic_fallback = (var_id, target)
+        return dynamic_fallback
 
     # Map an arbiter outcome to how the authority NPC should voice it (the
     # arbiter's analytical reason stays internal — never shown to the player).
@@ -1623,9 +1630,10 @@ class GameSession:
                 _clog.info("[t%s]   world-changes applied=%s rejected=%s",
                            self.world.state.tick, applied, rejected)
             if new_var:
-                _clog.info("[t%s]   +dynamic prerequisite var %r (set_by=%s)",
+                _spec = self._world_var_specs[new_var]
+                _clog.info("[t%s]   +dynamic prerequisite var %r (set_by=%s, keywords=%s)",
                            self.world.state.tick, new_var,
-                           self._world_var_specs[new_var].get("set_by"))
+                           _spec.get("set_by"), _spec.get("request_keywords"))
             if verdict == "partial_success":
                 _clog.info("[t%s]   established_fact=%r", self.world.state.tick,
                            fact or "(none — arbiter stated no condition)")
