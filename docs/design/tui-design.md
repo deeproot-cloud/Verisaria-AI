@@ -16,12 +16,13 @@
 | 面板 | 归类 | 数据来源(协议) | 现状 |
 |---|---|---|---|
 | 顶部状态条 | 核心常驻 | `snapshot.player`(hp/stamina)+ tick + location + pacing;**时段/天气/派系 = TUI 写死占位(灰显 `*`)** | ✅/占位 |
-| 中间 事件流 / 叙事(**心脏**) | 核心常驻 | **Event 流**:PlayerSpoke/NpcSpoke/PlayerMoved/Narration/PressureEvent/WorldVarChanged/StanceConfirmed/RelationshipShifted | ✅(RelationshipShifted 待补,见 §5) |
+| 中间 事件流 / 叙事(**心脏**) | 核心常驻 | **Event 流**:PlayerSpoke/NpcSpoke/PlayerMoved/Narration/PressureEvent/WorldVarChanged/StanceConfirmed/RelationshipShifted + SpeechToken 打字机流式 | ✅ |
 | 右上 附近 NPC + 关系 | 核心常驻 | `snapshot.present` + `snapshot.relationships`(value+band+phrase) | ✅ |
 | 右下 世界状态 | 核心常驻(小) | `snapshot.world_vars` | ✅ |
 | 输入行 + 状态(领会中…) | 核心常驻 | Command 入口 + Progress 事件 | ✅ |
-| 左 地图(拓扑) | 可折叠 | `snapshot.map`(locations+connections,**无坐标**) | ⚠️ DTO 在,`snapshot()` 待填充 |
-| 「处境 / 焦点」面板 | 可折叠 | 见 §3 | ⚠️ 部分现成 |
+| 左 地图(拓扑) | 可折叠 | `snapshot.map`(locations+connections,**无坐标**) | ✅ |
+| 「处境 / 焦点」面板 | 可折叠 | 见 §3 | ✅ 两面齐(处境/焦点 + DEBUG) |
+| 窄屏响应式折叠 | 收尾 | `on_resize` 断点 | ✅ |
 | 调试行 / 命令栏 | 可折叠/开关 | debug;Textual command palette | ✅ |
 
 布局示意(= s1):
@@ -81,12 +82,18 @@
 
 ## 5. 增量构建计划(每步可跑/可测)
 
-- **v1 — 能玩的核心回路**:Textual 骨架 + 事件流面板 + 输入行 + **worker 线程跑 tick + 实时事件推送** + 状态条。
+- ✅ **v1 — 能玩的核心回路**:Textual 骨架 + 事件流面板 + 输入行 + **worker 线程跑 tick + 实时事件推送** + 状态条。
   达成:打字 → 事件即时流出 → tick 推进,不冻屏。
-- **v2 — 右栏 + 后果内联**:附近 NPC + 关系条(主导维+短语)+ 世界状态;**补 `RelationshipShifted` 事件**(2b 延后的),把后果内联进事件流(s4)。
-- **v3 — 左栏 + 焦点 + 打磨**:地图(填 `snapshot.map`)+ 处境/焦点面板 +「你对该 NPC 的了解」+ `SpeechToken` 打字机 + DEBUG 上帝视角 + 折叠/响应式收尾。
+- ✅ **v2 — 右栏 + 后果内联**:附近 NPC + 关系条(主导维+短语)+ 世界状态;`RelationshipShifted` 事件后果内联进事件流(s4)。
+- ✅ **v3 — 左栏 + 焦点 + 打磨**:地图(`snapshot.map`)+ 处境/焦点面板 +「你对该 NPC 的了解」+ `SpeechToken` 打字机 + DEBUG 上帝视角(Ctrl+G)+ 折叠/响应式收尾 + Footer/Ctrl+Q。
+  **v3 全部落地**(见 commits d474f11…0c0f928);键位用 Ctrl+ 系(单字母会被常驻输入框吞掉)。
 
 测试:Textual `App.run_test()` / `Pilot` 驱动按键 + 断言面板;数据映射(snapshot→面板模型)普通单测。
+
+### 仍延后(不阻塞 v3)
+- 顶部状态条「时段/天气/派系」仍是灰显 `*` 占位(无引擎数据源)。
+- `NpcMoved` 环境事件(NPC 进出场)尚未在事件流体现。
+- 双语:UI 串现为中文写死,远期再做(见记忆 `language-i18n-direction`)。
 
 ## 6. 依赖与落位
 
