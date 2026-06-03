@@ -1419,6 +1419,11 @@ class GameSession:
                     entry["authority_relationship"] = {
                         k: round(v, 2) for k, v in snap.dimensions.items() if v > 0
                     }
+            # Emergent intermediate facts established about THIS var in prior
+            # arbitration, so the verdict can build on accumulated concessions.
+            facts = [f.text for f in self.fact_ledger.relevant(var_id)]
+            if facts:
+                entry["established_facts"] = facts
             out.append(entry)
         return out
 
@@ -1504,6 +1509,17 @@ class GameSession:
                 outcome.rejected_state_changes = list(
                     outcome.rejected_state_changes
                 ) + dropped
+
+        # Remember an LLM-established intermediate fact (partial_success only) so
+        # later arbitration can build on it — the terminal flag itself still never
+        # flips except on a genuine success. See docs/design/emergent-fact-ledger.md.
+        if outcome.arbiter_output.outcome == "partial_success":
+            fact = (outcome.arbiter_output.established_fact or "").strip()
+            if fact:
+                self.fact_ledger.add(
+                    text=fact, regarding=var_id, npc_id=authority_npc,
+                    tick=self.world.state.tick,
+                )
 
         self._apply_state_changes(outcome)
 

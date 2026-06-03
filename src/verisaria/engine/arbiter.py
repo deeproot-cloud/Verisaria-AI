@@ -177,6 +177,9 @@ class LLMArbiter:
                 "中提议（field 写成 `world.<变量名>`）。**只有当持此权限的 NPC，基于其"
                 "对当事人的态度与自身职责，会同意时**才提议变更；否则维持现状（并让该 "
                 "NPC 给出符合身份的回应理由）。\n"
+                "某些变量下会列出【先前已确立】的中间事实——早先交涉里这位 NPC 松过的口或"
+                "提过的条件。若当前请求显示这些条件**现在已被满足**，可据此判 success；但"
+                "中间事实本身不自动构成成功，且当事人若已背弃信任，你也可推翻先前的让步。\n"
             )
             for v in context.mutable_world_vars:
                 var_id = v.get("var_id", "")
@@ -193,6 +196,8 @@ class LLMArbiter:
                     if rel:
                         line += f"；{auth}对当事人的态度：{rel}"
                 prompt += line + "\n"
+                for fact in (v.get("established_facts") or []):
+                    prompt += f"    · （先前已确立）{fact}\n"
             prompt += "\n"
 
         prompt += """## 输出要求
@@ -208,7 +213,8 @@ class LLMArbiter:
     {"field": "字段路径", "delta": 数值, "reason": "变更原因"}
   ],
   "confidence": 0.0-1.0,
-  "narration_hint": "给叙事者的提示（50字以内）"
+  "narration_hint": "给叙事者的提示（50字以内）",
+  "established_fact": "仅当 outcome 为 partial_success：用一句客观陈述写下此刻已确立的中间事实或条件（供日后裁定复用），如「他愿意交出报告，前提是匿名」；其它情况留空字符串"
 }
 """
         return prompt

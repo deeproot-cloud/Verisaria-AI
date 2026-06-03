@@ -382,6 +382,10 @@ class ArbiterOutput(BaseModel):
     redirect_to_action_type: ActionType | None = None
     confidence: float = Field(ge=0.0, le=1.0)
     narration_hint: str | None = None
+    # On partial_success, an objective one-line statement of the intermediate fact
+    # or condition just established (LLM-authored), remembered by the FactLedger for
+    # later arbitration to build on. Empty otherwise. See emergent-fact-ledger.md.
+    established_fact: str | None = None
 
     @model_validator(mode="after")
     def validate_redirect_has_target(self):
