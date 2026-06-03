@@ -49,6 +49,36 @@ def test_tui_submit_streams_events_and_advances_tick(tmp_path):
     assert any(e.name in ("队长布兰", "哨兵伏斯") for e in last.present)
 
 
+def test_tui_left_column_panels_populate_and_quit_bound(tmp_path):
+    """v3: the left column (map + agenda) mounts and renders the starting
+    location/topology, and Ctrl+Q is wired to quit (shown in the Footer)."""
+    from verisaria.frontends.tui import render as R
+
+    es = EngineSession.start(PACK, save_dir=str(tmp_path), llm_backend="fake")
+    app = VerisariaApp(es)
+    captured: dict = {}
+
+    async def scenario():
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            # the left-column widgets exist and got a refresh snapshot
+            captured["map_widget"] = app.query_one("#map")
+            captured["agenda_widget"] = app.query_one("#agenda")
+            captured["footer"] = [w for w in app.query("*")
+                                  if type(w).__name__ == "Footer"]
+            captured["snap"] = es.snapshot()
+
+    asyncio.run(scenario())
+
+    assert captured["map_widget"] is not None and captured["agenda_widget"] is not None
+    assert len(captured["footer"]) == 1  # Footer mounted (surfaces ^q 退出)
+    # the snapshot the app renders carries the topology; render_map marks 门楼 ★
+    map_markup = R.render_map(captured["snap"])
+    assert "★ 门楼" in map_markup
+    assert any(b.action == "quit" and "ctrl+q" in b.key
+               for b in VerisariaApp.BINDINGS)
+
+
 def test_tui_run_log_captures_command_events_and_timing(tmp_path):
     """--log writes a trace: the submitted command, each event, and tick timing —
     so a session's problems are diagnosable after the fact."""

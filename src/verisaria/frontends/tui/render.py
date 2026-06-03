@@ -84,10 +84,45 @@ def summarize_event(ev: P.Event) -> str:
     return name
 
 
-def _bar(value: float, width: int = 5) -> str:
-    """A tiny 0..1 gauge: ▓ filled, ░ empty."""
+def _bar(value: float, width: int = 10) -> str:
+    """A 0..1 gauge: █ filled (solid, legible), ░ empty."""
     filled = max(0, min(width, round(value * width)))
-    return "▓" * filled + "░" * (width - filled)
+    return "█" * filled + "░" * (width - filled)
+
+
+_DISTANCE_CN = {"adjacent": "相邻", "near": "附近", "far": "远"}
+
+
+def render_map(snapshot: P.WorldSnapshot) -> str:
+    """Left panel — topology: current location ★ + its exits + other known places."""
+    m = snapshot.map
+    if m is None:
+        return "[dim]—[/]"
+    lines = [f"[{AMBER}]★ {_esc(m.current_name or m.current)}[/]"]
+    for ex in m.exits:
+        dist = _DISTANCE_CN.get(ex.distance, ex.distance)
+        tail = f"  [dim]({dist})[/]" if dist else ""
+        lines.append(f"  [dim]→[/] {_esc(ex.name)}{tail}")
+    if m.others:
+        lines.append(f"[dim]○ 其他：{_esc('、'.join(m.others))}[/]")
+    return "\n".join(lines)
+
+
+def render_agenda(snapshot: P.WorldSnapshot) -> str:
+    """Left panel — the player's goals (confirmed stances + drives) and open questions."""
+    ag = snapshot.agenda
+    if ag is None:
+        return "[dim]—[/]"
+    lines: list[str] = []
+    for stance in ag.confirmed_stances:
+        lines.append(f"[{AMBER}]◆ {_esc(stance)}[/]")
+    for drive in ag.drives:
+        lines.append(f"· {_esc(drive)}")
+    if ag.open_questions:
+        lines.append("[dim]未解之问[/]")
+        for q in ag.open_questions:
+            lines.append(f"  [dim]? {_esc(q)}[/]")
+    return "\n".join(lines) if lines else "[dim]尚无明确目标。[/]"
 
 
 def render_nearby(snapshot: P.WorldSnapshot) -> str:

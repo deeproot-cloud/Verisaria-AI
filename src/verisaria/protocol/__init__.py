@@ -288,12 +288,22 @@ class WorldVarView:
 class AgendaView:
     drives: list[str] = field(default_factory=list)
     confirmed_stances: list[str] = field(default_factory=list)
+    open_questions: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class MapExit:
+    to: str             # destination location id
+    name: str           # destination display name
+    distance: str = ""  # adjacent / near / far
 
 
 @dataclass(frozen=True)
 class MapView:
-    locations: list[str] = field(default_factory=list)
-    connections: list[dict[str, Any]] = field(default_factory=list)
+    current: str = ""           # current location id
+    current_name: str = ""      # current location display name
+    exits: list[MapExit] = field(default_factory=list)
+    others: list[str] = field(default_factory=list)  # other known location names
 
 
 @dataclass(frozen=True)
@@ -307,6 +317,7 @@ class WorldSnapshot:
     world_vars: list[WorldVarView] = field(default_factory=list)
     agenda: AgendaView | None = None
     map: MapView | None = None
+    central_tension: str = ""   # the pack's framing of the situation (for the focus panel)
 
 
 def snapshot_to_dict(s: WorldSnapshot) -> dict[str, Any]:

@@ -151,6 +151,7 @@ class EngineSession:
         agenda_view = protocol.AgendaView(
             drives=[d.label for d in agenda.current_drives],
             confirmed_stances=list(g.agenda_service.get_confirmed_stance_topics()),
+            open_questions=list(getattr(agenda, "open_questions", []) or []),
         )
 
         loc = state.locations.get(loc_id) if hasattr(state, "locations") else None
@@ -158,6 +159,26 @@ class EngineSession:
             id=loc_id, name=state.location_label(loc_id),
             description=getattr(loc, "description", "") or "",
         )
+
+        # Topology map — exits from the current location + other known places.
+        exits = [
+            protocol.MapExit(
+                to=c.to_location, name=state.location_label(c.to_location),
+                distance=getattr(c, "distance", ""),
+            )
+            for c in getattr(loc, "connections", []) or []
+        ]
+        exit_ids = {e.to for e in exits} | {loc_id}
+        others = [
+            state.location_label(lid) for lid in state.locations if lid not in exit_ids
+        ]
+        map_view = protocol.MapView(
+            current=loc_id, current_name=state.location_label(loc_id),
+            exits=exits, others=others,
+        )
+
+        premise = getattr(g.pack, "world_premise", None)
+        central_tension = getattr(premise, "central_tension", "") or ""
 
         return protocol.WorldSnapshot(
             tick=state.tick,
@@ -168,4 +189,6 @@ class EngineSession:
             relationships=relationships,
             world_vars=world_vars,
             agenda=agenda_view,
+            map=map_view,
+            central_tension=central_tension,
         )

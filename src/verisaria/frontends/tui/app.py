@@ -1,9 +1,9 @@
 """Verisaria TUI — a Textual app over the EngineSession protocol.
 
 v1 = core loop (status + event-log + input, worker-threaded streaming tick).
-v2 = right sidebar (nearby NPCs + relationships, world state) from the snapshot,
-     plus inline consequence events (world/relationship/stance) in the stream.
-Side map/focus panels come in v3 — see docs/design/tui-design.md.
+v2 = right sidebar (nearby NPCs + world) + inline consequence events.
+v3 = left column (topology map + agenda), Footer + Ctrl+Q quit, solid stance bars.
+See docs/design/tui-design.md.
 """
 from __future__ import annotations
 
@@ -14,8 +14,9 @@ from rich.text import Text
 
 from textual import work
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Input, RichLog, Static
+from textual.widgets import Footer, Input, RichLog, Static
 
 from verisaria import protocol as P
 from verisaria.protocol.engine_session import EngineSession
@@ -35,13 +36,19 @@ class VerisariaApp(App):
     Screen { layout: vertical; }
     #status { height: 1; background: $panel; padding: 0 1; }
     #main { height: 1fr; }
+    #left { width: 30; }
+    #map { height: 1fr; border: round $primary-darken-2; padding: 0 1; }
+    #agenda { height: 1fr; border: round $primary-darken-2; padding: 0 1; }
     #events { width: 2fr; border: round $primary-darken-2; padding: 0 1; }
     #sidebar { width: 36; }
     #nearby { height: 1fr; border: round $primary-darken-2; padding: 0 1; }
     #world { height: auto; border: round $primary-darken-2; padding: 0 1; }
-    #input { dock: bottom; }
     """
     TITLE = "Verisaria"
+    BINDINGS = [
+        Binding("ctrl+q", "quit", "退出"),
+        Binding("ctrl+c", "quit", "退出", show=False),
+    ]
 
     def __init__(self, engine: EngineSession) -> None:
         super().__init__()
@@ -52,16 +59,22 @@ class VerisariaApp(App):
     def compose(self) -> ComposeResult:
         yield Static(id="status")
         with Horizontal(id="main"):
+            with Vertical(id="left"):
+                yield Static(id="map")
+                yield Static(id="agenda")
             yield RichLog(id="events", markup=False, wrap=True, highlight=False)
             with Vertical(id="sidebar"):
                 yield Static(id="nearby")
                 yield Static(id="world")
         yield Input(id="input", placeholder=_PROMPT)
+        yield Footer()
 
     def on_mount(self) -> None:
-        self.query_one("#events", RichLog).border_title = "事件流"
-        self.query_one("#nearby", Static).border_title = "附近 NPC"
-        self.query_one("#world", Static).border_title = "世界状态"
+        for wid, title in (
+            ("#map", "地图"), ("#agenda", "议程"), ("#events", "事件流"),
+            ("#nearby", "附近 NPC"), ("#world", "世界状态"),
+        ):
+            self.query_one(wid).border_title = title
         self._refresh_panels(self.engine.snapshot())
         self._log("[dim]——— Verisaria ——— 输入自然语言行动，回车提交。[/]")
         self.query_one("#input", Input).focus()
@@ -114,6 +127,8 @@ class VerisariaApp(App):
 
     def _refresh_panels(self, snap: P.WorldSnapshot) -> None:
         self.query_one("#status", Static).update(_m(R.render_status(snap)))
+        self.query_one("#map", Static).update(_m(R.render_map(snap)))
+        self.query_one("#agenda", Static).update(_m(R.render_agenda(snap)))
         self.query_one("#nearby", Static).update(_m(R.render_nearby(snap)))
         self.query_one("#world", Static).update(_m(R.render_world(snap)))
 

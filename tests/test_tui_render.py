@@ -62,7 +62,7 @@ def test_render_nearby_shows_dominant_dim_and_phrase():
     )
     out = R.render_nearby(snap)
     assert "captain_brann" in out
-    assert "怀疑" in out and "戒心很重" in out and "▓" in out
+    assert "怀疑" in out and "戒心很重" in out and "█" in out
     assert "一个外来者" not in out  # players aren't listed as nearby NPCs
 
 
@@ -97,3 +97,34 @@ def test_summarize_event_plain_text():
 def test_notice_rendered_dim():
     out = R.render_event(P.Notice(tick=4, text="队长不在这里"))
     assert out is not None and "队长不在这里" in out and "dim" in out
+
+
+def test_render_map_shows_current_and_exits():
+    snap = P.WorldSnapshot(
+        tick=1, pacing="normal", location=P.LocationView(id="gatehouse", name="门楼"),
+        map=P.MapView(current="gatehouse", current_name="门楼", exits=[
+            P.MapExit(to="barracks", name="兵营", distance="adjacent"),
+            P.MapExit(to="refugee_camp", name="难民营", distance="near"),
+        ], others=["集市"]),
+    )
+    out = R.render_map(snap)
+    assert "★ 门楼" in out and "兵营" in out and "相邻" in out
+    assert "难民营" in out and "附近" in out and "集市" in out
+
+
+def test_render_agenda_shows_stances_drives_questions():
+    snap = P.WorldSnapshot(
+        tick=1, pacing="normal", location=P.LocationView(id="x"),
+        agenda=P.AgendaView(
+            confirmed_stances=["接纳难民"], drives=["弄清这里发生了什么"],
+            open_questions=["队长会为谁担风险？"],
+        ),
+    )
+    out = R.render_agenda(snap)
+    assert "接纳难民" in out and "弄清这里发生了什么" in out and "队长会为谁担风险" in out
+
+
+def test_bar_is_solid_and_scales():
+    assert R._bar(1.0, 10) == "█" * 10
+    assert R._bar(0.0, 10) == "░" * 10
+    assert "█" in R._bar(0.5, 10) and "░" in R._bar(0.5, 10)
