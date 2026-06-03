@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -1508,6 +1509,39 @@ class GameSession:
         "redirect": "你没有正面答应，把话题引向别处",
     }
 
+    # GM-declared prerequisites: cap how many dynamic world vars one session may
+    # spawn, so a runaway arbiter can't flood world state.
+    _MAX_DYNAMIC_VARS = 16
+
+    @staticmethod
+    def _normalize_var_id(raw: str) -> str:
+        return re.sub(r"[^a-z0-9_]", "_", (raw or "").strip().lower()).strip("_")
+
+    def _register_dynamic_prerequisite(self, prereq) -> str | None:
+        """Register a GM-declared prerequisite (arbiter `new_prerequisite`) as a
+        first-class **dynamic** world var, so the player has a structural path to
+        satisfy it instead of a dead-end demand. Initial False (created != satisfied
+        — anti-cheese intact: it still only flips on a real success). Deduped by
+        var_id and capped per session. See docs/design/dynamic-world-model.md."""
+        if prereq is None:
+            return None
+        var_id = self._normalize_var_id(getattr(prereq, "var_id", "") or "")
+        if not var_id or var_id in self._world_var_specs:
+            return None  # empty/garbage id, or already declared (pack or earlier)
+        if sum(1 for s in self._world_var_specs.values() if s.get("dynamic")) >= self._MAX_DYNAMIC_VARS:
+            return None
+        self._world_var_specs[var_id] = {
+            "var_id": var_id,
+            "label": (getattr(prereq, "label", "") or var_id),
+            "set_by": list(getattr(prereq, "set_by", []) or []),
+            "request_keywords": list(getattr(prereq, "request_keywords", []) or []),
+            "mutable": True,
+            "initial": False,
+            "dynamic": True,
+        }
+        self.world.state.world_vars.setdefault(var_id, False)
+        return var_id
+
     def _handle_world_change_request(self, action, var_id: str, authority_npc: str) -> str:
         """Adjudicate (via the arbiter) whether the authorized NPC complies with
         the player's world-changing request, factoring in their relationship. On
@@ -1552,6 +1586,11 @@ class GameSession:
 
         self._apply_state_changes(outcome)
 
+        # The GM may introduce a prerequisite the world model has no var for — register
+        # it as a dynamic var so the player has a structural path to satisfy it.
+        new_var = self._register_dynamic_prerequisite(
+            getattr(outcome.arbiter_output, "new_prerequisite", None))
+
         flag_after = self.world.state.world_vars.get(var_id)
         if _clog.isEnabledFor(logging.INFO):
             verdict = outcome.arbiter_output.outcome
@@ -1577,6 +1616,10 @@ class GameSession:
             if applied or rejected:
                 _clog.info("[t%s]   world-changes applied=%s rejected=%s",
                            self.world.state.tick, applied, rejected)
+            if new_var:
+                _clog.info("[t%s]   +dynamic prerequisite var %r (set_by=%s)",
+                           self.world.state.tick, new_var,
+                           self._world_var_specs[new_var].get("set_by"))
             if verdict == "partial_success":
                 _clog.info("[t%s]   established_fact=%r", self.world.state.tick,
                            fact or "(none — arbiter stated no condition)")
@@ -1942,6 +1985,9 @@ class GameSession:
                     "interaction_scheduler": self.npc_interaction_scheduler.get_state(),
                     "relationship_store": self.relationship_store.get_state(),
                     "fact_ledger": self.fact_ledger.get_state(),
+                    "dynamic_world_vars": [
+                        s for s in self._world_var_specs.values() if s.get("dynamic")
+                    ],
                 },
             )
             return f"Saved: {save_data.save_id}"
@@ -1997,6 +2043,15 @@ class GameSession:
                     self.relationship_store.load_state(npc["relationship_store"])
                 if npc and "fact_ledger" in npc:
                     self.fact_ledger.load_state(npc["fact_ledger"])
+                if npc and npc.get("dynamic_world_vars"):
+                    # Restore GM-spawned dynamic vars into the spec registry (their
+                    # values come back with the world state); _init_world_vars only
+                    # rebuilds the pack-declared ones.
+                    for spec in npc["dynamic_world_vars"]:
+                        vid = spec.get("var_id")
+                        if vid and vid not in self._world_var_specs:
+                            self._world_var_specs[vid] = spec
+                            self.world.state.world_vars.setdefault(vid, spec.get("initial", False))
 
                 return f"Loaded: {arg} (tick {self.world.state.tick})"
             except FileNotFoundError:

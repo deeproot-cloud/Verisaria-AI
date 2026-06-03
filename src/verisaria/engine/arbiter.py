@@ -184,6 +184,11 @@ class LLMArbiter:
                 "也纳入考量：若某项前置已由别处交涉达成（例如所需的世界事实当前已为真，或另一"
                 "变量下已记录了对应的让步），即可视为该条件满足——不要因为'只是口头声称'就忽略"
                 "这些已被结构化记录的既成事实。\n"
+                "你像一位尽职的 GM：**只提当事人在当前世界里够得着的条件**（已有变量/在场 NPC/"
+                "可做的事），不要抛出无路可走的空要求。若你确实要引入一个上面变量里还没有的前置"
+                "（如'先取得某证物''先让某人到场作证'），就在 `new_prerequisite` 里把它**声明成一个"
+                "可满足的世界变量**（给 var_id / label / set_by=能满足它的 NPC / request_keywords），"
+                "这样当事人才有结构化的路径去达成它。\n"
             )
             for v in context.mutable_world_vars:
                 var_id = v.get("var_id", "")
@@ -218,7 +223,8 @@ class LLMArbiter:
   ],
   "confidence": 0.0-1.0,
   "narration_hint": "给叙事者的提示（50字以内）",
-  "established_fact": "仅当 outcome 为 partial_success：用一句客观陈述写下此刻已确立的中间事实或条件（供日后裁定复用），如「他愿意交出报告，前提是匿名」。务必写成【可满足、可闭环】的条件，写清楚对方还具体需要什么，避免「稍后审议」「改天再说」这类无法被后续满足的表述；其它情况留空字符串"
+  "established_fact": "仅当 outcome 为 partial_success：用一句客观陈述写下此刻已确立的中间事实或条件（供日后裁定复用），如「他愿意交出报告，前提是匿名」。务必写成【可满足、可闭环】的条件，写清楚对方还具体需要什么，避免「稍后审议」「改天再说」这类无法被后续满足的表述；其它情况留空字符串",
+  "new_prerequisite": null 或 {"var_id": "snake_case_ascii_id", "label": "中文标签", "set_by": ["能满足它的NPC的id或authority角色"], "request_keywords": ["玩家可能用来达成它的说法"]}（仅当你引入了上面变量里还没有的新前置时才填，否则 null）
 }
 """
         return prompt

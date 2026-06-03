@@ -372,6 +372,17 @@ class StateChange(BaseModel):
         return v
 
 
+class NewPrerequisite(BaseModel):
+    """A GM-declared prerequisite the arbiter wants to introduce that the current
+    world model has no var for. The engine registers it as a first-class (dynamic)
+    world var so the player has a structural path to satisfy it. See
+    docs/design/dynamic-world-model.md."""
+    var_id: str                                    # stable snake_case ascii id
+    label: str = ""                                # human-readable 中文 label
+    set_by: list[str] = Field(default_factory=list)          # NPC role or id who can satisfy it
+    request_keywords: list[str] = Field(default_factory=list)  # how a request routes to it
+
+
 class ArbiterOutput(BaseModel):
     arbiter_id: str
     source_action_id: str
@@ -389,6 +400,10 @@ class ArbiterOutput(BaseModel):
     # True when this is a deterministic default verdict because the LLM was
     # unavailable — NOT a real adjudication (so logs/diagnostics can flag it).
     is_fallback: bool = False
+    # Optionally: a prerequisite the verdict introduces that no current world var
+    # represents — the engine registers it so the player can actually satisfy it
+    # (rather than the demand being a dead end). See dynamic-world-model.md.
+    new_prerequisite: NewPrerequisite | None = None
 
     @model_validator(mode="after")
     def validate_redirect_has_target(self):
