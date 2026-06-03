@@ -94,11 +94,16 @@ class NPCDialogueGenerator:
         world: Any | None = None,
         memory_store: Any | None = None,
         conversation_session: Any | None = None,
+        directive: str | None = None,
     ) -> str | None:
-        """Return an LLM-generated line, or ``None`` to let the caller fall back."""
+        """Return an LLM-generated line, or ``None`` to let the caller fall back.
+        ``directive`` injects a current-situation steer (e.g. the arbiter verdict the
+        NPC must voice), so the reply reflects what just happened — not generic
+        chatter — even on the non-streaming path."""
         try:
             prompt = self._build_prompt(
-                npc_id, entity, memory_store, conversation_session, world=world
+                npc_id, entity, memory_store, conversation_session, world=world,
+                directive=directive,
             )
             result = self.llm.call(
                 LLMCallRequest(
@@ -200,6 +205,7 @@ class NPCDialogueGenerator:
         memory_store: Any | None,
         session: Any | None,
         world: Any | None = None,
+        directive: str | None = None,
     ) -> str:
         try:
             template = self.prompts.load(self.TASK_TYPE, "v1.0.0")
@@ -209,11 +215,12 @@ class NPCDialogueGenerator:
         persona = self._persona_block(npc_id, entity)
         environment = self._environment_section(entity, world)
         memories = self._memory_block(
-            npc_id, memory_store, query=self._memory_query(session)
+            npc_id, memory_store, query=self._memory_query(session, directive)
         )
         knowledge = self._knowledge_section(entity)
         recent = self._recent_section(npc_id)
         conversation = self._conversation_block(npc_id, session)
+        situation = f"## 当前情境\n{directive}\n\n" if directive else ""
 
         return (
             f"{template}\n\n"
@@ -222,6 +229,7 @@ class NPCDialogueGenerator:
             f"## 你记得的事（只有你自己知道的）\n{memories}\n\n"
             f"{knowledge}"
             f"{recent}"
+            f"{situation}"
             f"## 当前对话\n{conversation}\n\n"
             "## 输出\n"
             '只返回 JSON：{"line": "<一句符合角色身份的中文台词>"}'

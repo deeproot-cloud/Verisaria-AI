@@ -1580,6 +1580,7 @@ class GameSession:
             line = self.npc_dialogue_generator.generate_line(
                 npc_id=authority_npc, entity=entity, world=self.world.state,
                 memory_store=self.memory_store, conversation_session=session,
+                directive=directive,  # voice the arbiter verdict, not generic chatter
             )
         granted = any(c.field == f"world.{var_id}" for c in outcome.accepted_state_changes)
         line = line or ("……好吧，就照你说的办。" if granted else "不行，恕难从命。")

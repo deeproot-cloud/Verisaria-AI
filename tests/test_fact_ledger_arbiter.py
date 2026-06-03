@@ -69,3 +69,40 @@ def test_partial_success_with_blank_fact_records_nothing(tmp_path):
     _stub_arbiter(g, "partial_success", "")  # arbiter declined to state a fact
     _request(g)
     assert g.fact_ledger.all() == []
+
+
+def test_arbiter_prompt_renders_established_facts_and_cross_ref_guidance():
+    """The read side: a var's established facts reach the arbiter prompt, and the
+    prompt steers it to treat an already-satisfied prerequisite as the condition met."""
+    from verisaria.engine.arbiter import LLMArbiter, ArbiterContext
+    from verisaria.engine.llm import FakeLLMProvider, LLMOrchestrator
+    from verisaria.engine.schemas import Action, ActionType
+
+    arb = LLMArbiter(llm_orchestrator=LLMOrchestrator(primary_provider=FakeLLMProvider()))
+    action = Action(action_id="a", actor_id="player_001", action_type=ActionType.SOCIAL,
+                    target_id="npc.archivist_mae", tick=1,
+                    params={"verb": "persuade", "content": "提交禁令"})
+    ctx = ArbiterContext(
+        action=action, actor_attributes={}, target_attributes={},
+        location_id="archive", zone_id=None, recent_events=[], world_book_entries=[],
+        mutable_world_vars=[{
+            "var_id": "archive_injunction_filed", "label": "档案禁令", "current": False,
+            "set_by": ["npc.archivist_mae"], "authority_npc": "archivist_mae",
+            "established_facts": ["档案署承认收到禁令申请，需联签后批准"],
+        }],
+    )
+    prompt = arb._build_prompt(ctx)
+    assert "档案署承认收到禁令申请，需联签后批准" in prompt   # the fact is rendered
+    assert "其它变量下已确立的事实" in prompt                  # cross-reference guidance present
+
+
+def test_generate_line_directive_reaches_prompt():
+    """The non-streaming reply path now honours the directive (arbiter verdict to
+    voice), so a fallback line reflects what happened instead of generic chatter."""
+    from verisaria.engine.npc_dialogue import NPCDialogueGenerator
+    from verisaria.engine.llm import FakeLLMProvider, LLMOrchestrator
+
+    gen = NPCDialogueGenerator(llm_orchestrator=LLMOrchestrator(primary_provider=FakeLLMProvider()))
+    prompt = gen._build_prompt("npc.archivist_mae", None, None, None,
+                               directive="你没有当场答应，但要求先取得联签。")
+    assert "## 当前情境" in prompt and "要求先取得联签" in prompt
