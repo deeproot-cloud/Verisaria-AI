@@ -79,6 +79,43 @@ def test_tui_left_column_panels_populate_and_quit_bound(tmp_path):
                for b in VerisariaApp.BINDINGS)
 
 
+def test_tui_typewriter_accumulates_then_commits(tmp_path):
+    """SpeechToken events grow the live line (with a cursor); the committing
+    NpcSpoke clears it and writes the finished reply to the event log."""
+    from textual.widgets import Static
+
+    es = EngineSession.start(PACK, save_dir=str(tmp_path), llm_backend="fake")
+    app = VerisariaApp(es)
+    live_updates: list[str] = []
+    logged: list[str] = []
+
+    async def scenario():
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app._names = {"npc.captain_brann": "队长布兰"}
+            live = app.query_one("#liveline", Static)
+            orig_update = live.update
+            live.update = lambda r="": (live_updates.append(str(r)), orig_update(r))[1]
+            orig_log = app._log
+            app._log = lambda m: (logged.append(str(m)), orig_log(m))[1]
+
+            for tok in ["你", "说", "得", "在理"]:
+                app._on_event(P.SpeechToken(tick=1, npc_id="npc.captain_brann", token=tok))
+            assert app._stream_buf["npc.captain_brann"] == "你说得在理"
+            # the live line grew with the accumulated reply + a typewriter cursor
+            assert any("你说得在理" in u and "▌" in u for u in live_updates)
+            # SpeechTokens don't hit the event log (they're on the live line only)
+            assert not logged
+
+            app._on_event(P.NpcSpoke(
+                tick=1, npc_id="npc.captain_brann", name="队长布兰", line="你说得在理"))
+            assert "npc.captain_brann" not in app._stream_buf  # buffer cleared
+            assert live_updates[-1] == ""                       # live line cleared
+            assert any("你说得在理" in m for m in logged)        # committed to log
+
+    asyncio.run(scenario())
+
+
 def test_tui_run_log_captures_command_events_and_timing(tmp_path):
     """--log writes a trace: the submitted command, each event, and tick timing —
     so a session's problems are diagnosable after the fact."""

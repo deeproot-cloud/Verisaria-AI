@@ -705,7 +705,7 @@ class GameSession:
 
         do_stream = (
             stream_npc is not None and stream_npc in candidates
-            and self._stream_sink is not None
+            and (self._stream_sink is not None or self._event_sink is not None)
             and getattr(self.llm_provider, "supports_streaming", False)
         )
         cache: dict[str, str | None] = {}
@@ -724,15 +724,17 @@ class GameSession:
 
         # Foreground: stream the addressed NPC's reply live.
         if do_stream:
-            name = stream_npc.replace("npc.", "")
-            self._stream_sink(f"\n{name}：")
+            if self._stream_sink is not None:
+                name = stream_npc.replace("npc.", "")
+                self._stream_sink(f"\n{name}：")
             line = self.npc_dialogue_generator.generate_line_stream(
                 npc_id=stream_npc, entity=world.get_entity(stream_npc), world=world,
                 memory_store=self.memory_store,
                 conversation_session=self.conversation_manager.get_active_session(stream_npc),
-                on_delta=self._stream_sink,
+                on_delta=self._stream_delta_sink(stream_npc),
             )
-            self._stream_sink("\n")
+            if self._stream_sink is not None:
+                self._stream_sink("\n")
             if line:
                 cache[stream_npc] = line
                 self._streamed_npc = stream_npc
@@ -1019,6 +1021,20 @@ class GameSession:
             sink(event)
         except Exception:
             pass
+
+    def _stream_delta_sink(self, npc_id: str):
+        """Build the ``on_delta`` callback for a streamed NPC line. Forwards each
+        token to the raw CLI sink (if attached) AND emits a structured
+        ``SpeechToken`` event to the protocol sink — so a TUI/Godot frontend can
+        render the reply token-by-token (the §2 'latency feel' point) without the
+        CLI's stdout coupling."""
+        def on_delta(token: str) -> None:
+            if self._stream_sink is not None:
+                self._stream_sink(token)
+            if self._event_sink is not None:
+                self._emit(protocol.SpeechToken(
+                    tick=self.world.state.tick, npc_id=npc_id, token=token))
+        return on_delta
 
     def _emit_progress(self, message: str) -> None:
         """Send a coarse progress message to the sink — only for real (slow)
@@ -1447,16 +1463,18 @@ class GameSession:
         session = self.conversation_manager.get_active_session(authority_npc)
         line = None
         # Stream the reply live when possible (same UX as other NPC dialogue).
-        if self._stream_sink is not None and getattr(
+        if (self._stream_sink is not None or self._event_sink is not None) and getattr(
             self.llm_provider, "supports_streaming", False
         ):
-            self._stream_sink(f"\n{name}：")
+            if self._stream_sink is not None:
+                self._stream_sink(f"\n{name}：")
             line = self.npc_dialogue_generator.generate_line_stream(
                 npc_id=authority_npc, entity=entity, world=self.world.state,
                 memory_store=self.memory_store, conversation_session=session,
-                on_delta=self._stream_sink, directive=directive,
+                on_delta=self._stream_delta_sink(authority_npc), directive=directive,
             )
-            self._stream_sink("\n")
+            if self._stream_sink is not None:
+                self._stream_sink("\n")
             if line:
                 self._streamed_npc = authority_npc
         if not line:

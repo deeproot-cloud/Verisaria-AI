@@ -39,7 +39,9 @@ class VerisariaApp(App):
     #left { width: 30; }
     #map { height: 1fr; border: round $primary-darken-2; padding: 0 1; }
     #agenda { height: 1fr; border: round $primary-darken-2; padding: 0 1; }
-    #events { width: 2fr; border: round $primary-darken-2; padding: 0 1; }
+    #center { width: 2fr; }
+    #events { height: 1fr; border: round $primary-darken-2; padding: 0 1; }
+    #liveline { height: auto; padding: 0 1; }
     #sidebar { width: 36; }
     #nearby { height: 1fr; border: round $primary-darken-2; padding: 0 1; }
     #world { height: auto; border: round $primary-darken-2; padding: 0 1; }
@@ -55,6 +57,8 @@ class VerisariaApp(App):
         self.engine = engine
         self._busy = False
         self._n_events = 0
+        self._stream_buf: dict[str, str] = {}   # npc_id → reply so far (live line)
+        self._names: dict[str, str] = {}        # npc_id → display name (from snapshot)
 
     def compose(self) -> ComposeResult:
         yield Static(id="status")
@@ -62,7 +66,9 @@ class VerisariaApp(App):
             with Vertical(id="left"):
                 yield Static(id="map")
                 yield Static(id="agenda")
-            yield RichLog(id="events", markup=False, wrap=True, highlight=False)
+            with Vertical(id="center"):
+                yield RichLog(id="events", markup=False, wrap=True, highlight=False)
+                yield Static(id="liveline")
             with Vertical(id="sidebar"):
                 yield Static(id="nearby")
                 yield Static(id="world")
@@ -118,14 +124,35 @@ class VerisariaApp(App):
     def _on_event(self, ev: P.Event) -> None:
         self._n_events += 1
         log.info("EV [t%s] %s", ev.tick, R.summarize_event(ev))
+        # Typewriter: accumulate an addressed NPC's reply on the live line as tokens
+        # stream in; the committing NpcSpoke (written to the log below) clears it.
+        if isinstance(ev, P.SpeechToken):
+            self._stream_append(ev.npc_id, ev.token)
+            return
+        if isinstance(ev, P.NpcSpoke):
+            self._stream_clear(ev.npc_id)
         markup = R.render_event(ev)
         if markup:
             self._log(markup)
+
+    def _stream_append(self, npc_id: str, token: str) -> None:
+        buf = self._stream_buf.get(npc_id, "") + token
+        self._stream_buf[npc_id] = buf
+        name = self._names.get(npc_id, npc_id.replace("npc.", ""))
+        self.query_one("#liveline", Static).update(
+            _m(f"[{R.PARCHMENT}]{R._esc(name)}：{R._esc(buf)}▌[/]")
+        )
+
+    def _stream_clear(self, npc_id: str) -> None:
+        if self._stream_buf.pop(npc_id, None) is not None:
+            self.query_one("#liveline", Static).update("")
 
     def _log(self, markup: str) -> None:
         self.query_one("#events", RichLog).write(_m(markup))
 
     def _refresh_panels(self, snap: P.WorldSnapshot) -> None:
+        # co-located names, so a streamed reply's live line can be prefixed correctly
+        self._names = {e.id: e.name for e in snap.present}
         self.query_one("#status", Static).update(_m(R.render_status(snap)))
         self.query_one("#map", Static).update(_m(R.render_map(snap)))
         self.query_one("#agenda", Static).update(_m(R.render_agenda(snap)))
@@ -134,6 +161,8 @@ class VerisariaApp(App):
 
     def _finish_tick(self) -> None:
         self._busy = False
+        self._stream_buf.clear()  # drop any half-streamed line (e.g. on error)
+        self.query_one("#liveline", Static).update("")
         inp = self.query_one("#input", Input)
         inp.disabled = False
         inp.placeholder = _PROMPT
