@@ -33,6 +33,35 @@
 
 ---
 
+## ⏱ 第三跑（commit 7dc5f29 起）——盯闭环
+
+第二跑结果 `PARTIAL_PASS_UPTAKE_FAIL_CLOSURE`（`reports/skyglass_dynamic_prereq_second_run/`）：
+uptake 0→1（GM 声明了 `union_witness_statement_filed`），台词矛盾已修；但**声明出来的动态前置
+触发不到**——玩家和有效权威 NPC（Tamsin，`union_authority`）同地、发了 4 次实质请求，却因关键词门
+（GM 现造变量关键词无从调优、很可能为空）退化成普通对话，没路由、没 `⟳FLIP`。
+
+已修：**动态变量放宽路由**——对动态变量的权威 NPC 发实质（非提问）请求，即使关键词不命中也路由、
+交 arbiter 判；日志补打 `keywords=...`；prompt 要求 set_by 只写**确实存在**的 NPC + 多给自然关键词。
+
+**这一跑就盯闭环，复用同一个去脚手架 pack**
+（`reports/skyglass_dynamic_prereq_test/skyglass_dynamic_prereq_pack.json`）：
+
+1. **动态前置能否被满足并翻旗**：GM 声明动态前置后，去找其 `set_by` 指向的**真实存在**的权威 NPC
+   （如 Tamsin），用**自然语言**发实质请求（不必猜关键词）。盯日志：
+   - 是否出现 `world-change <动态var> by <NPC> → ...`（说明这次**路由成功**了）？
+   - 能否 `success → ⟳FLIP`？翻了之后回到上游 NPC（如奥罗），`memory_purge_halted` 等终态能否因
+     前置已为真而 `success → ⟳FLIP`，跑出**完整闭环**？
+2. **顺带确认 GM 给的关键词**：看新日志 `+dynamic prerequisite var '<id>' (set_by=..., keywords=...)`，
+   关键词到底空不空、合不合理；set_by 是否还在编不存在的 NPC。
+3. 反作弊照旧抽查一次（伪造前置不翻旗），确认放宽路由没把反作弊放过。
+
+报告给出：是否跑出**至少一条完整 `动态前置 ⟳FLIP → 终态 ⟳FLIP` 闭环**（贴日志链路），或卡在哪。
+剔除 `⚠FALLBACK` tick。日志放 `reports/<新目录>/`。
+
+> 闭环成立 → P1 站住，接着上 P2（现场动作 summon/witness）。仍不成立 → 贴卡点日志，开发侧继续调。
+
+---
+
 ## （以下为第一跑原始简报，背景参考）
 
 ## 这轮验证什么
