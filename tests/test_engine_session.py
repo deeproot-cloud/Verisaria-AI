@@ -37,6 +37,15 @@ def test_submit_speech_returns_events_and_snapshot(tmp_path):
     json.dumps(res.to_dict())
 
 
+def test_snapshot_carries_scene_framing(tmp_path):
+    """The focus panel «处境» needs the location description (loader → LocationState
+    → snapshot) and the pack's central tension — both player-perceivable framing."""
+    snap = _es(tmp_path).snapshot()
+    assert "门楼" in snap.location.name
+    assert snap.location.description and "箭垛" in snap.location.description
+    assert snap.central_tension and "猜忌" in snap.central_tension
+
+
 def test_wait_advances_tick(tmp_path):
     es = _es(tmp_path)
     t0 = es.snapshot().tick

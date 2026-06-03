@@ -112,16 +112,30 @@ def test_render_map_shows_current_and_exits():
     assert "难民营" in out and "附近" in out and "集市" in out
 
 
-def test_render_agenda_shows_stances_drives_questions():
+def test_render_focus_shows_scene_then_goals():
     snap = P.WorldSnapshot(
-        tick=1, pacing="normal", location=P.LocationView(id="x"),
+        tick=1, pacing="normal",
+        location=P.LocationView(id="gatehouse", name="门楼", description="风从箭垛灌进来。"),
+        central_tension="补给将尽，恐惧化作猜忌。",
         agenda=P.AgendaView(
             confirmed_stances=["接纳难民"], drives=["弄清这里发生了什么"],
             open_questions=["队长会为谁担风险？"],
         ),
     )
-    out = R.render_agenda(snap)
+    out = R.render_focus(snap)
+    # 处境: scene description + the pack's central tension
+    assert "风从箭垛灌进来。" in out and "补给将尽，恐惧化作猜忌。" in out
+    # 焦点: the player's goals
     assert "接纳难民" in out and "弄清这里发生了什么" in out and "队长会为谁担风险" in out
+
+
+def test_render_focus_goals_only_when_no_scene():
+    snap = P.WorldSnapshot(
+        tick=1, pacing="normal", location=P.LocationView(id="x"),
+        agenda=P.AgendaView(confirmed_stances=["接纳难民"]),
+    )
+    out = R.render_focus(snap)
+    assert "接纳难民" in out
 
 
 def test_render_godview_marks_locked_and_is_magenta():

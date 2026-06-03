@@ -108,21 +108,36 @@ def render_map(snapshot: P.WorldSnapshot) -> str:
     return "\n".join(lines)
 
 
-def render_agenda(snapshot: P.WorldSnapshot) -> str:
-    """Left panel — the player's goals (confirmed stances + drives) and open questions."""
-    ag = snapshot.agenda
-    if ag is None:
-        return "[dim]—[/]"
+def render_focus(snapshot: P.WorldSnapshot) -> str:
+    """Left panel «处境 / 焦点» — context first (where you are + the pack's central
+    tension), then your goals (confirmed stances + drives + open questions). The
+    DEBUG god-view is the *other* face of this slot (Ctrl+G)."""
     lines: list[str] = []
-    for stance in ag.confirmed_stances:
-        lines.append(f"[{AMBER}]◆ {_esc(stance)}[/]")
-    for drive in ag.drives:
-        lines.append(f"· {_esc(drive)}")
-    if ag.open_questions:
-        lines.append("[dim]未解之问[/]")
-        for q in ag.open_questions:
-            lines.append(f"  [dim]? {_esc(q)}[/]")
-    return "\n".join(lines) if lines else "[dim]尚无明确目标。[/]"
+
+    # — 处境: scene framing —
+    desc = (snapshot.location.description or "").strip()
+    if desc:
+        lines.append(f"[{PARCHMENT} italic]{_esc(desc)}[/]")
+    tension = (snapshot.central_tension or "").strip()
+    if tension:
+        lines.append(f"[{RED}]◈ {_esc(tension)}[/]")
+
+    # — 焦点: the player's agenda —
+    ag = snapshot.agenda
+    goals: list[str] = []
+    if ag is not None:
+        for stance in ag.confirmed_stances:
+            goals.append(f"[{AMBER}]◆ {_esc(stance)}[/]")
+        for drive in ag.drives:
+            goals.append(f"· {_esc(drive)}")
+        if ag.open_questions:
+            goals.append("[dim]未解之问[/]")
+            for q in ag.open_questions:
+                goals.append(f"  [dim]? {_esc(q)}[/]")
+    if lines and goals:
+        lines.append("")  # blank spacer between 处境 and 焦点
+    lines.extend(goals or (["[dim]尚无明确目标。[/]"] if not lines else []))
+    return "\n".join(lines) if lines else "[dim]—[/]"
 
 
 def render_nearby(snapshot: P.WorldSnapshot) -> str:

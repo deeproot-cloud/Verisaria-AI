@@ -63,6 +63,7 @@ class Connection:
 class LocationState:
     location_id: str
     name: str = ""    # human-readable display name (pack-declared); id if blank
+    description: str = ""  # pack-declared scene prose (for the «处境» focus panel)
     zones: dict[str, ZoneState] = field(default_factory=dict)
     connected_locations: list[str] = field(default_factory=list)
     connections: list[Connection] = field(default_factory=list)

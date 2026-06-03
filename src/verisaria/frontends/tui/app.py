@@ -87,7 +87,7 @@ class VerisariaApp(App):
 
     def on_mount(self) -> None:
         for wid, title in (
-            ("#map", "地图"), ("#agenda", "议程"), ("#events", "事件流"),
+            ("#map", "地图"), ("#agenda", "处境 / 焦点"), ("#events", "事件流"),
             ("#nearby", "附近 NPC"), ("#world", "世界状态"),
             ("#godview", "DEBUG 上帝视角"),
         ):
@@ -179,7 +179,7 @@ class VerisariaApp(App):
         self._last_snap = snap
         self.query_one("#status", Static).update(_m(R.render_status(snap)))
         self.query_one("#map", Static).update(_m(R.render_map(snap)))
-        self.query_one("#agenda", Static).update(_m(R.render_agenda(snap)))
+        self.query_one("#agenda", Static).update(_m(R.render_focus(snap)))
         self.query_one("#nearby", Static).update(_m(R.render_nearby(snap)))
         self.query_one("#world", Static).update(_m(R.render_world(snap)))
         if self._god:  # keep the debug view current as the world changes

@@ -262,9 +262,11 @@ class CampaignLoader:
             # Build connections from initial_locations if provided
             connections: list[Connection] = []
             loc_name = ""
+            loc_desc = ""
             for loc_def in pack.initial_locations:
                 if loc_def.get("location_id") == loc_id:
                     loc_name = loc_def.get("name", "")
+                    loc_desc = loc_def.get("description", "")
                     for conn in loc_def.get("connections", []):
                         connections.append(Connection(
                             to_location=conn.get("to", ""),
@@ -282,6 +284,7 @@ class CampaignLoader:
             state.locations[loc_id] = LocationState(
                 location_id=loc_id,
                 name=loc_name,
+                description=loc_desc,
                 zones=zones,
                 connected_locations=connected,
                 connections=connections,

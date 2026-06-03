@@ -4,7 +4,7 @@
   "world_premise": {
     "era": "low_fantasy_frontier",
     "tone": "grim_tense",
-    "central_tension": "a snowbound border watchpost where dwindling supplies and old propaganda turn fear of demon refugees into open suspicion"
+    "central_tension": "风雪封山的边境哨站，渐少的过冬补给与陈年的教会宣传，把对恶魔难民的恐惧推成了公开的猜忌。"
   },
   "world_book": [
     {
@@ -41,6 +41,7 @@
     {
       "location_id": "gatehouse",
       "name": "门楼",
+      "description": "风从箭垛的缝隙里灌进来，火盆只够暖住围着它的几个人。结霜的吊闸后面，就是被关在城外的难民营。",
       "connections": [
         {"to": "barracks", "distance": "adjacent", "noise_leak": 0.2, "visual_leak": 0.1, "description": "推开结霜的木门，进入兵营"},
         {"to": "refugee_camp", "distance": "near", "noise_leak": 0.1, "visual_leak": 0.0, "description": "穿过结冰的吊桥，走向城墙外的难民营"}
@@ -49,6 +50,7 @@
     {
       "location_id": "barracks",
       "name": "兵营",
+      "description": "一排空了大半的木床，墙角堆着越来越矮的粮袋。守军在这里低声议论，话题离不开补给和城外那群人。",
       "connections": [
         {"to": "gatehouse", "distance": "adjacent", "noise_leak": 0.2, "visual_leak": 0.1, "description": "回到风雪呼啸的门楼"}
       ]
@@ -56,6 +58,7 @@
     {
       "location_id": "refugee_camp",
       "name": "难民营",
+      "description": "城墙外的雪地里挤着几顶破帐篷，孩子和老人缩在一起取暖。他们望着紧闭的城门，等一个不知会不会来的答复。",
       "connections": [
         {"to": "gatehouse", "distance": "near", "noise_leak": 0.1, "visual_leak": 0.0, "description": "沿着吊桥回到门楼"}
       ]
