@@ -4,6 +4,37 @@
 > 承接第二轮回归（`reports/skyglass_ledger_regression_test/`）：账本闭环的前半段已通过，
 > 长链 A 卡在"LLM 涌现出比世界模型更细、无结构落点的条件"。
 
+---
+
+## ⏱ 第二跑（2026-06-03 之后，commit 86dc261 起）——重点只看 uptake
+
+第一跑结果 `FAIL_DYNAMIC_PREREQ_NOT_USED`（`reports/skyglass_dynamic_prereq_test/`）：机制接线正确，
+但真实 arbiter **从不主动**填 `new_prerequisite`（日志 0 次），新条件全留在散文/账本里 → 链卡死。
+
+已据此把 arbiter prompt 改硬（必须声明、established_fact 软备忘 vs new_prerequisite 可追踪路径的
+分工、ascii 蛇形 id、加了完整示例）、给授权回复加了"只陈述确实为真、不虚构进展"的底真约束、并加了
+"提了但被丢弃"的诊断日志。**这一跑就验两件事，别的可略**：
+
+1. **uptake 是否 > 0**：用**同一个删了手工中间变量的测试 pack**
+   （`reports/skyglass_dynamic_prereq_test/skyglass_dynamic_prereq_pack.json`）原样重跑，盯日志：
+   - `+dynamic prerequisite var '<id>' (set_by=...)` 还是不是 0？出现几次？造的 var 合不合理（id 是
+     ascii 蛇形吗、set_by 对得上能满足它的 NPC 吗）？
+   - 若出现 `new_prerequisite proposed but NOT registered (dup/cap/bad-id): ...`，把它贴出来——说明
+     模型填了、但引擎丢了（去重/上限/坏 id），是另一类问题。
+   - uptake >0 后，去满足那个动态 var，看能否 `⟳FLIP` 并推进终态裁定。
+2. **台词不再与底真矛盾**：复跑"玩家谎称某前置已完成"的场景，确认 NPC 可见台词**不再**声称未发生
+   的进展/未亲见的凭证（上轮"我看到了梅档案官的章"那种）。
+
+报告给出：uptake 次数 + 至少一条 `+dynamic prerequisite var` 链路（或说明为何仍 0）+ 台词矛盾是否
+消除。日志放 `reports/<新目录>/`。
+
+> 若 uptake 仍为 0：不用再调，直接回报，开发侧会上"policy 重试"后手（partial_success 点名了未结构化
+> 的新条件却没填 new_prerequisite 时判不合规并重试）。
+
+---
+
+## （以下为第一跑原始简报，背景参考）
+
 ## 这轮验证什么
 
 P1 给了 arbiter（GM）一个能力：当它要求一个世界模型里**没有的前置**时，可以在裁定输出的
