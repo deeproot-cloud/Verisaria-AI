@@ -40,6 +40,7 @@
   "initial_locations": [
     {
       "location_id": "gatehouse",
+      "name": "门楼",
       "connections": [
         {"to": "barracks", "distance": "adjacent", "noise_leak": 0.2, "visual_leak": 0.1, "description": "推开结霜的木门，进入兵营"},
         {"to": "refugee_camp", "distance": "near", "noise_leak": 0.1, "visual_leak": 0.0, "description": "穿过结冰的吊桥，走向城墙外的难民营"}
@@ -47,12 +48,14 @@
     },
     {
       "location_id": "barracks",
+      "name": "兵营",
       "connections": [
         {"to": "gatehouse", "distance": "adjacent", "noise_leak": 0.2, "visual_leak": 0.1, "description": "回到风雪呼啸的门楼"}
       ]
     },
     {
       "location_id": "refugee_camp",
+      "name": "难民营",
       "connections": [
         {"to": "gatehouse", "distance": "near", "noise_leak": 0.1, "visual_leak": 0.0, "description": "沿着吊桥回到门楼"}
       ]
@@ -61,6 +64,7 @@
   "initial_entities": [
     {
       "entity_id": "player_001",
+      "name": "你",
       "entity_type": "player",
       "location_id": "gatehouse",
       "zone_id": "watch_post",
@@ -72,6 +76,7 @@
     },
     {
       "entity_id": "npc.captain_brann",
+      "name": "队长布兰",
       "entity_type": "npc",
       "location_id": "gatehouse",
       "zone_id": "watch_post",
@@ -80,6 +85,7 @@
     },
     {
       "entity_id": "npc.sentry_voss",
+      "name": "哨兵伏斯",
       "entity_type": "npc",
       "location_id": "gatehouse",
       "zone_id": "watch_post",
@@ -88,6 +94,7 @@
     },
     {
       "entity_id": "npc.quartermaster_hale",
+      "name": "军需官海尔",
       "entity_type": "npc",
       "location_id": "barracks",
       "zone_id": "stores",
@@ -96,6 +103,7 @@
     },
     {
       "entity_id": "npc.refugee_kaze",
+      "name": "难民卡泽",
       "entity_type": "npc",
       "location_id": "refugee_camp",
       "zone_id": "campfire",
@@ -104,6 +112,7 @@
     },
     {
       "entity_id": "npc.refugee_old_sib",
+      "name": "老西布",
       "entity_type": "npc",
       "location_id": "refugee_camp",
       "zone_id": "campfire",

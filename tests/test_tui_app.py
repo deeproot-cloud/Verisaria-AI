@@ -46,7 +46,7 @@ def test_tui_submit_streams_events_and_advances_tick(tmp_path):
     # world var + the co-located NPCs (what render_nearby / render_world draw).
     last = snaps[-1]
     assert any(w.var_id == "refugees_admitted" for w in last.world_vars)
-    assert any(e.name in ("captain_brann", "sentry_voss") for e in last.present)
+    assert any(e.name in ("队长布兰", "哨兵伏斯") for e in last.present)
 
 
 def test_tui_run_log_captures_command_events_and_timing(tmp_path):

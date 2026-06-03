@@ -125,6 +125,6 @@ def render_status(snapshot: P.WorldSnapshot) -> str:
     stamina = p.stamina if p else "—"
     return (
         f"[{RED}]♥[/] HP {hp}   ⚡ 体力 {stamina}   "
-        f"Tick {snapshot.tick}   位置 {snapshot.location.id}   "
+        f"Tick {snapshot.tick}   位置 {snapshot.location.name or snapshot.location.id}   "
         f"节奏 {snapshot.pacing}   [dim]·时段* ·天气*[/]"
     )

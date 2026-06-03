@@ -58,7 +58,7 @@ def test_movement_tick_emits_player_moved(tmp_path):
     s.run_tick("我去难民营。")
 
     moved = [e for e in events if isinstance(e, P.PlayerMoved)]
-    assert moved and moved[0].from_loc == "gatehouse" and moved[0].to_loc == "refugee_camp"
+    assert moved and moved[0].from_loc == "门楼" and moved[0].to_loc == "难民营"  # display names
 
 
 def test_world_var_change_emits_event(tmp_path):

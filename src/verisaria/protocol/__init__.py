@@ -258,6 +258,7 @@ class PresentEntity:
 @dataclass(frozen=True)
 class LocationView:
     id: str
+    name: str = ""          # display name (falls back to id)
     description: str = ""
 
 

@@ -109,7 +109,7 @@ class EngineSession:
 
         present = [
             protocol.PresentEntity(
-                id=e.entity_id, name=e.entity_id.replace("npc.", ""), type=e.entity_type,
+                id=e.entity_id, name=state.display_name(e.entity_id), type=e.entity_type,
             )
             for e in state.entities.values()
             if e.location_id == loc_id and e.entity_id != g.player_id
@@ -135,7 +135,7 @@ class EngineSession:
             ]
             if descriptors:
                 relationships.append(protocol.RelationshipView(
-                    npc_id=snap.npc_id, name=snap.npc_id.replace("npc.", ""),
+                    npc_id=snap.npc_id, name=state.display_name(snap.npc_id),
                     descriptors=descriptors,
                 ))
 
@@ -155,7 +155,8 @@ class EngineSession:
 
         loc = state.locations.get(loc_id) if hasattr(state, "locations") else None
         location = protocol.LocationView(
-            id=loc_id, description=getattr(loc, "description", "") or "",
+            id=loc_id, name=state.location_label(loc_id),
+            description=getattr(loc, "description", "") or "",
         )
 
         return protocol.WorldSnapshot(

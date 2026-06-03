@@ -184,13 +184,14 @@ class CoherenceChecker:
             return issues  # location target handled elsewhere
 
         if actor.location_id != target.location_id:
-            target_name = str(intent.target_id).replace("npc.", "").replace("npc_", "")
+            target_name = world.display_name(intent.target_id)
+            target_loc = world.location_label(target.location_id)
             issues.append(
                 CoherenceIssue(
                     issue_type="spatial_mismatch",
                     severity="error",
                     message=(
-                        f"{target_name}不在这儿，TA在{target.location_id}那边，"
+                        f"{target_name}不在这儿，TA在{target_loc}那边，"
                         "你得先过去才能搭话。"
                     ),
                     field="target_id",

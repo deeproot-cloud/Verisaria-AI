@@ -417,7 +417,7 @@ class GameSession:
             if content and actor and actor.location_id == viewer_location:
                 self._emit(protocol.NpcSpoke(
                     tick=self.world.state.tick, npc_id=a.actor_id,
-                    name=a.actor_id.replace("npc.", ""), line=content))
+                    name=self.world.state.display_name(a.actor_id), line=content))
         # NB: player_before is a LIVE entity reference that resolve() mutates in
         # place, so compare against viewer_location (the string captured pre-resolve).
         player_after = self.world.state.get_entity(self.player_id)
@@ -425,7 +425,8 @@ class GameSession:
                 and player_after.location_id != viewer_location):
             self._emit(protocol.PlayerMoved(
                 tick=self.world.state.tick,
-                from_loc=viewer_location, to_loc=player_after.location_id))
+                from_loc=self.world.state.location_label(viewer_location),
+                to_loc=self.world.state.location_label(player_after.location_id)))
 
         # Observation dispatch + Subjectivity pipeline for non-combat events
         dispatched = self._process_events_for_subjectivity(events)
@@ -1064,7 +1065,7 @@ class GameSession:
             if snap.npc_id == observer_id:
                 dims = snap.dimensions
                 break
-        name = observer_id.replace("npc.", "")
+        name = self.world.state.display_name(observer_id)
         for dim, delta in deltas.items():
             if not delta or abs(delta) < 0.01:
                 continue
@@ -1434,7 +1435,7 @@ class GameSession:
 
         self._apply_state_changes(outcome)
 
-        name = authority_npc.replace("npc.", "")
+        name = self.world.state.display_name(authority_npc)
         request = action.params.get("content") or action.raw_text or ""
         stance = self._AUTHORITY_STANCE.get(outcome.arbiter_output.outcome, "你做出了回应")
         directive = (

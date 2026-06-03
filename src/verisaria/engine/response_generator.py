@@ -278,9 +278,11 @@ class ResponseGenerator:
             return ""
         if entity_id == player_id:
             return "你"
-        # Simple heuristic: remove prefix, capitalize
-        name = entity_id.replace("npc.", "").replace("_", " ")
-        return name
+        # Prefer the pack-declared display name; else id-derived.
+        ent = world.get_entity(entity_id) if world is not None else None
+        if ent is not None and getattr(ent, "name", ""):
+            return ent.name
+        return entity_id.replace("npc.", "").replace("_", " ")
 
     # ------------------------------------------------------------------
     # State change summary

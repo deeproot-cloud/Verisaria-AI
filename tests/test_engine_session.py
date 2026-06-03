@@ -31,7 +31,7 @@ def test_submit_speech_returns_events_and_snapshot(tmp_path):
     # snapshot: at the gatehouse with brann + voss present, world var declared
     assert res.snapshot.location.id == "gatehouse"
     names = {p.name for p in res.snapshot.present}
-    assert "captain_brann" in names and "sentry_voss" in names
+    assert "队长布兰" in names and "哨兵伏斯" in names  # pack-declared display names
     assert any(w.var_id == "refugees_admitted" for w in res.snapshot.world_vars)
     # the whole result is JSON-serializable (Godot IPC)
     json.dumps(res.to_dict())

@@ -25,6 +25,7 @@ class EntityState:
     entity_id: str
     entity_type: str  # "player" | "npc"
     location_id: str
+    name: str = ""    # human-readable display name (pack-declared); id-derived if blank
     zone_id: str | None = None
     attributes: dict[str, float] = field(default_factory=dict)
     traits: list[str] = field(default_factory=list)
@@ -61,6 +62,7 @@ class Connection:
 @dataclass
 class LocationState:
     location_id: str
+    name: str = ""    # human-readable display name (pack-declared); id if blank
     zones: dict[str, ZoneState] = field(default_factory=dict)
     connected_locations: list[str] = field(default_factory=list)
     connections: list[Connection] = field(default_factory=list)
@@ -78,6 +80,20 @@ class WorldState:
 
     def get_entity(self, entity_id: str) -> EntityState | None:
         return self.entities.get(entity_id)
+
+    def display_name(self, entity_id: str) -> str:
+        """Human-readable name for an entity (pack-declared, else id-derived)."""
+        e = self.entities.get(entity_id)
+        if e is not None and e.name:
+            return e.name
+        return entity_id.replace("npc.", "").replace("_", " ")
+
+    def location_label(self, location_id: str) -> str:
+        """Human-readable name for a location (pack-declared, else the id)."""
+        loc = self.locations.get(location_id)
+        if loc is not None and getattr(loc, "name", ""):
+            return loc.name
+        return location_id or ""
 
     def get_zone(self, location_id: str, zone_id: str) -> ZoneState | None:
         loc = self.locations.get(location_id)
