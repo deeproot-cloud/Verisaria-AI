@@ -116,6 +116,35 @@ def test_tui_typewriter_accumulates_then_commits(tmp_path):
     asyncio.run(scenario())
 
 
+def test_tui_responsive_collapses_secondary_panels(tmp_path):
+    """On a wide terminal all panels show; as it narrows the left column drops
+    first, then the right sidebar — but the centre event log never collapses."""
+    def _displays(size):
+        es = EngineSession.start(PACK, save_dir=str(tmp_path), llm_backend="fake")
+        app = VerisariaApp(es)
+        out: dict = {}
+
+        async def scenario():
+            async with app.run_test(size=size) as pilot:
+                await pilot.pause()
+                out["left"] = app.query_one("#left").display
+                out["side"] = app.query_one("#sidebar").display
+                out["events"] = app.query_one("#events").display
+
+        asyncio.run(scenario())
+        return out
+
+    wide = _displays((130, 40))
+    assert wide["left"] and wide["side"] and wide["events"]
+
+    mid = _displays((95, 40))                 # left dropped, sidebar kept
+    assert not mid["left"] and mid["side"] and mid["events"]
+
+    narrow = _displays((70, 40))              # both secondary dropped
+    assert not narrow["left"] and not narrow["side"]
+    assert narrow["events"]                   # core loop survives
+
+
 def test_tui_god_view_toggles_left_column(tmp_path):
     """Ctrl+G swaps the left column (map+agenda) for the DEBUG god-view, which
     renders each co-located NPC's real state; toggling again restores it."""

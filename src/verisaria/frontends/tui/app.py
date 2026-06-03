@@ -48,6 +48,11 @@ class VerisariaApp(App):
     #world { height: auto; border: round $primary-darken-2; padding: 0 1; }
     """
     TITLE = "Verisaria"
+    # Responsive breakpoints: below these widths the secondary panels collapse so
+    # the core loop (event log + input) stays usable. Left column (map/agenda)
+    # drops first, then the right sidebar; the centre never collapses.
+    _W_LEFT = 110
+    _W_SIDE = 84
     BINDINGS = [
         Binding("ctrl+q", "quit", "退出"),
         Binding("ctrl+c", "quit", "退出", show=False),
@@ -88,8 +93,20 @@ class VerisariaApp(App):
         ):
             self.query_one(wid).border_title = title
         self._refresh_panels(self.engine.snapshot())
+        self._apply_responsive()
         self._log("[dim]——— Verisaria ——— 输入自然语言行动，回车提交。[/]")
         self.query_one("#input", Input).focus()
+
+    def on_resize(self, event) -> None:
+        self._apply_responsive()
+
+    def _apply_responsive(self) -> None:
+        """Collapse secondary panels on narrow terminals (0 width = pre-layout →
+        treat as wide so nothing flickers hidden at startup). An explicit god-view
+        keeps the left column up regardless, since that's where it renders."""
+        w = self.size.width or 999
+        self.query_one("#left").display = (w >= self._W_LEFT) or self._god
+        self.query_one("#sidebar").display = w >= self._W_SIDE
 
     def on_input_submitted(self, message: Input.Submitted) -> None:
         if self._busy:
@@ -174,6 +191,7 @@ class VerisariaApp(App):
         self.query_one("#map").display = not self._god
         self.query_one("#agenda").display = not self._god
         self.query_one("#godview").display = self._god
+        self._apply_responsive()  # keep #left visible while god-view is up
         if self._god:
             self._refresh_godview()
 
