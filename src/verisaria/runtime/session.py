@@ -214,6 +214,12 @@ class GameSession:
         # (NPC dialogue then degrades to templates forever).
         self.llm_orchestrator.reset_tick_budget()
 
+        # Expire stale conversations so an NPC the player engaged long ago stops
+        # counting as "in conversation" (and interjecting). Engine-level so EVERY
+        # frontend gets it — previously only the CLI repl called this, which is why
+        # the TUI's NPCs never stopped talking.
+        self.conversation_manager.check_timeouts(self.world.state.tick)
+
         # Handle active clarification session
         if self._active_clarification is not None:
             return self._handle_clarification_response(raw_input)
@@ -625,15 +631,27 @@ class GameSession:
         — both their idle chatter and NPC-NPC interactions are held back at that
         location this tick (P1.9).
         """
-        active_convs: set[str] = set()
+        # "Busy" = participants of ALL active sessions — used to not double-book an
+        # NPC into a new NPC-NPC interaction this tick.
+        busy_convs: set[str] = set()
         for session in self.conversation_manager._sessions.values():
             if session.status in ("active", "resumed"):
-                active_convs.update(session.participants)
-        # The NPC the player just addressed is engaged this tick regardless of
-        # session bookkeeping — they reply, they don't wander off (real-play bug
-        # where an addressed captain idly walked away despite being spoken to).
+                busy_convs.update(session.participants)
         if addressed_npc:
-            active_convs.add(addressed_npc)
+            busy_convs.add(addressed_npc)
+
+        # "Speaking" = the conversation the player is engaging THIS tick (the
+        # addressed NPC + that NPC's session partners). Only these auto-reply every
+        # tick. A lingering / NPC-NPC session no longer forces its members to
+        # interject (the over-chatter bug: an NPC addressed turns ago kept talking).
+        speaking_convs: set[str] = set()
+        if addressed_npc:
+            speaking_convs.add(addressed_npc)
+            asess = self.conversation_manager.get_active_session(addressed_npc)
+            if asess is not None and asess.status in ("active", "resumed"):
+                speaking_convs.update(
+                    p for p in asess.participants if p != self.player_id
+                )
 
         # Precompute every candidate speaker's line concurrently (real providers)
         # so the serial generation below reads cached lines instead of blocking
@@ -641,9 +659,11 @@ class GameSession:
         # call of latency (PLAY-1). The generation loops are unchanged, so rng/seq
         # stay deterministic; FakeLLM skips this and calls live (A10).
         if getattr(self.llm_provider, "supports_concurrency", False):
-            self._precompute_npc_lines(active_convs, stream_npc=addressed_npc)
+            self._precompute_npc_lines(busy_convs, stream_npc=addressed_npc)
         try:
-            return self._collect_npc_actions_inner(active_convs, suppress_idle_speech_at)
+            return self._collect_npc_actions_inner(
+                busy_convs, speaking_convs, suppress_idle_speech_at
+            )
         finally:
             self.npc_action_generator._line_cache = None
 
@@ -727,13 +747,16 @@ class GameSession:
         self.npc_action_generator._line_cache = cache
 
     def _collect_npc_actions_inner(
-        self, active_convs: set[str], suppress_idle_speech_at: str | None
+        self, busy_convs: set[str], speaking_convs: set[str],
+        suppress_idle_speech_at: str | None,
     ) -> list[Action]:
         # NPC-NPC autonomous interactions (P1.2). NPCs talking to the player are
         # busy and excluded; an interacting NPC is then excluded from idle
         # generation so it never acts twice in one tick. While the player holds a
         # conversation, suppress NPC-NPC interactions entirely so they don't bury
-        # the player's exchange (P1.9).
+        # the player's exchange (P1.9). ``busy_convs`` keeps anyone in any active
+        # session from being double-booked; ``speaking_convs`` (the player's current
+        # exchange) is who auto-replies this tick.
         interaction_actions: list[Action] = []
         if suppress_idle_speech_at is None:
             interaction_actions = self.npc_action_generator.generate_interaction_actions(
@@ -742,7 +765,7 @@ class GameSession:
                 tick=self.world.state.tick,
                 belief_engine=self.belief_engine,
                 memory_store=self.memory_store,
-                busy_ids=active_convs,
+                busy_ids=busy_convs,
                 max_interactions=1,
             )
         engaged = {a.actor_id for a in interaction_actions}
@@ -750,7 +773,7 @@ class GameSession:
         idle_actions = self.npc_action_generator.generate_actions(
             world=self.world.state,
             tick=self.world.state.tick,
-            active_conversation_entity_ids=active_convs,
+            active_conversation_entity_ids=speaking_convs,
             memory_store=self.memory_store,
             conversation_manager=self.conversation_manager,
             exclude_ids=engaged,

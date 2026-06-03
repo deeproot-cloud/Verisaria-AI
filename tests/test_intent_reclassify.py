@@ -81,3 +81,27 @@ def test_pure_movement_without_speech_still_moves(tmp_path):
     s.intent_parser.parse = pure_move
     s.run_tick("去兵营")
     assert s.world.state.get_entity(PLAYER).location_id == "barracks"
+
+
+def test_lingering_conversation_npc_is_not_forced_to_speak(tmp_path):
+    """Over-chatter bug (live in the TUI): an NPC the player addressed turns ago kept
+    a lingering active session, so it counted as 'in conversation' and interjected
+    EVERY tick (voss kept repeating "我信…"). The auto-reply set is now the addressed
+    NPC's current conversation only — a lingering / NPC-NPC session no longer forces
+    its members to speak."""
+    s = GameSession(PACK, save_dir=str(tmp_path))
+    s.conversation_manager.start_session(
+        initiator_id=PLAYER, participants=["npc.sentry_voss"], tick=0
+    )  # voss: a lingering session from an earlier exchange
+    seen: dict = {}
+    orig = s.npc_action_generator.generate_actions
+
+    def spy(*a, **kw):
+        seen["speak"] = set(kw.get("active_conversation_entity_ids") or [])
+        return orig(*a, **kw)
+
+    s.npc_action_generator.generate_actions = spy
+    s._collect_npc_actions(suppress_idle_speech_at="gatehouse", addressed_npc=BRANN)
+
+    assert BRANN in seen["speak"]                  # addressed → auto-replies
+    assert "npc.sentry_voss" not in seen["speak"]  # lingering → not forced to speak
