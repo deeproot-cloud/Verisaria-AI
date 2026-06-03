@@ -29,3 +29,23 @@ def test_parse_failure_is_logged_with_cause(caplog):
     msgs = "\n".join(r.getMessage() for r in caplog.records)
     assert "去 mnemonic_clinic" in msgs                     # the input that failed
     assert "schema validation failed" in msgs              # the real cause, not the opaque msg
+
+
+def test_orchestrator_retries_parse_failures():
+    """A malformed-JSON (PARSE) failure is retried — nondeterministic models often
+    recover on a fresh sample, so the turn isn't lost to '我没理解'."""
+    from verisaria.engine.llm import LLMOrchestrator, LLMCallResult, LLMErrorCategory, LLMCallRequest
+
+    class _FlakyProvider:
+        def __init__(self): self.calls = 0
+        def call(self, request):
+            self.calls += 1
+            if self.calls == 1:
+                return LLMCallResult(success=False, error="JSON extraction failed",
+                                     error_category=LLMErrorCategory.PARSE)
+            return LLMCallResult(success=True, data={"ok": True})
+
+    prov = _FlakyProvider()
+    orch = LLMOrchestrator(primary_provider=prov)
+    result = orch.call(LLMCallRequest(task_type="parse_player_intent", prompt="x"))
+    assert result.success and prov.calls == 2   # retried once, then succeeded

@@ -63,9 +63,12 @@ class TestRetryPolicy:
         policy = RetryPolicy()
         assert not policy.should_retry(LLMErrorCategory.VALIDATION, attempt=0)
 
-    def test_should_not_retry_parse(self):
+    def test_should_retry_parse(self):
+        # PARSE is retryable: nondeterministic models intermittently emit malformed
+        # JSON; a fresh sample usually parses (better than failing the turn).
         policy = RetryPolicy()
-        assert not policy.should_retry(LLMErrorCategory.PARSE, attempt=0)
+        assert policy.should_retry(LLMErrorCategory.PARSE, attempt=0)
+        assert not policy.should_retry(LLMErrorCategory.PARSE, attempt=2)  # capped
 
     def test_should_not_retry_none(self):
         policy = RetryPolicy()

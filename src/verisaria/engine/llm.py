@@ -77,10 +77,14 @@ class RetryPolicy:
     max_retries: int = 2
     base_delay: float = 1.0
     max_delay: float = 10.0
-    # Categories that warrant a retry (transient errors)
+    # Categories that warrant a retry (transient errors). PARSE is included
+    # because nondeterministic models (notably MiniMax on long Chinese input)
+    # intermittently emit malformed JSON — a fresh sample usually parses, which
+    # is far better than failing the whole turn ("我没理解").
     retryable: set[str] = field(default_factory=lambda: {
         LLMErrorCategory.TIMEOUT.value,
         LLMErrorCategory.CONNECTION.value,
+        LLMErrorCategory.PARSE.value,
     })
 
     def should_retry(self, category: LLMErrorCategory | None, attempt: int) -> bool:
@@ -363,15 +367,17 @@ def _extract_json_object(raw_text: str) -> tuple[dict[str, Any] | None, str | No
     if code_block:
         text = code_block.group(1)
 
+    # strict=False tolerates literal control chars (newlines/tabs) inside string
+    # values — a common shape of malformed JSON from chat models.
     try:
-        return json.loads(text), None
+        return json.loads(text, strict=False), None
     except json.JSONDecodeError:
         pass
 
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if match:
         try:
-            return json.loads(match.group()), None
+            return json.loads(match.group(), strict=False), None
         except json.JSONDecodeError as exc:
             return None, str(exc)
 

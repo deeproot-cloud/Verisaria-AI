@@ -71,6 +71,10 @@ class ClarificationContext:
 # a handler is attached (CLI/TUI --log); never a player-facing event, so the ledger
 # stays invisible plumbing. See docs/design/emergent-fact-ledger.md.
 _clog = logging.getLogger("verisaria.channel_c")
+# Relationship appraisal (Channel A): traces each NPC's stance delta toward the
+# player + the belief behind it, so a long negotiation's rising suspicion is
+# diagnosable. Silent unless a handler is attached (CLI/TUI --log).
+_rlog = logging.getLogger("verisaria.relationship")
 
 
 class GameSession:
@@ -1084,6 +1088,14 @@ class GameSession:
             self.relationship_store.apply(
                 observer_id, self.player_id, result.deltas, tick
             )
+            if _rlog.isEnabledFor(logging.INFO) and result.deltas:
+                snap = self.relationship_store.get(observer_id, self.player_id)
+                now = {k: round(v, 2) for k, v in (snap.dimensions if snap else {}).items() if v}
+                _rlog.info(
+                    "[t%s] %s appraises player: Δ%s → %s | %s", tick, observer_id,
+                    {k: round(v, 2) for k, v in result.deltas.items() if v}, now,
+                    (getattr(result, "belief", "") or "")[:60],
+                )
             self._remember_appraisal_belief(observer_id, result.belief)
             self._emit_relationship_shifts(observer_id, result.deltas, tick)
 
@@ -1461,8 +1473,9 @@ class GameSession:
         if entity is None:
             return None
         target_authority = (entity.attributes or {}).get("authority")
-        if not target_authority:
-            return None
+        # NB: don't bail when the NPC has no `authority` role — a var's set_by may
+        # name the authorized NPC by id ("npc.xxx") instead of by role. Both forms
+        # are matched in the loop below, consistent with _authority_npc_for.
         # A5 — you can only persuade the authority who is PRESENT. A plea to someone
         # elsewhere doesn't reach them, so it doesn't route to world-change; it falls
         # through to ordinary speech. (A remote shout the engine adjudicates as
@@ -1479,7 +1492,8 @@ class GameSession:
         for var_id, spec in self._world_var_specs.items():
             if spec.get("mutable", True) is False:
                 continue
-            if target_authority not in (spec.get("set_by") or []):
+            set_by = spec.get("set_by") or []
+            if target_authority not in set_by and target not in set_by:
                 continue
             if any(k in content for k in (spec.get("request_keywords") or [])):
                 return (var_id, target)
