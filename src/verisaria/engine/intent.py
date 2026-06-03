@@ -16,6 +16,7 @@ Responsibilities:
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +26,11 @@ from verisaria.engine.coherence import CoherenceChecker, CoherenceIssue
 from verisaria.engine.llm import LLMCallRequest, LLMOrchestrator
 from verisaria.engine.schemas import ParsedIntent
 from verisaria.engine.world import WorldState
+
+
+# Diagnostics for parse failures (the opaque "我没理解" otherwise hides the cause).
+# Silent unless a handler is attached (CLI/TUI --log).
+_ilog = logging.getLogger("verisaria.intent")
 
 
 # ---------------------------------------------------------------------------
@@ -272,6 +278,13 @@ class IntentParser:
         )
 
         if not result.success:
+            # The opaque "我没理解" is a dead end for diagnosis — trace the REAL
+            # cause (budget / connection / json / schema / empty) so a --log run
+            # shows WHY parsing failed instead of just that it did.
+            _ilog.warning(
+                "parse failed for %r → %s [%s]", raw_text, result.error,
+                getattr(result.error_category, "value", result.error_category),
+            )
             # If LLM fails, return a clarification asking to rephrase
             return ClarificationRequest(
                 request_id=request_id,
