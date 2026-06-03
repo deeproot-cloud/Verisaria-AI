@@ -115,9 +115,12 @@ suspicion 0.2，…）。约 25 行，独立提交。
 
 ## 9. 提交节奏
 
-1. **A** — 关系播种 + 测试（独立真 bug）。
-2. **B** — FactLedger 模块 + 持久化 + 单测。
-3. **C** — arbiter `established_fact` 字段 + prompt 渲染/约束 + session 写读接线 + 累积管线测试。
+1. ✅ **A** — 关系播种 + 测试（独立真 bug）。`ee74233`
+2. ✅ **B** — FactLedger 模块 + 持久化 + 单测。`27a84f4`
+3. ✅ **C** — arbiter `established_fact` 字段 + prompt 渲染/约束 + session 写读接线 + 累积管线测试。`4bc83e6`
+
+**全部落地，920 passed。** 下一步是 §10 的命门验证——真机跑 tidebreak/skyglass，看 LLM 是否
+稳定复用先前事实、过程读起来像谈判。那需要真实 MiniMax + 两个测试包（产品方手里）。
 
 整体克制：一个 ~60 行新模块、一个 schema 字段、session 三处小改、arbiter prompt ~10 行、
 关系播种 ~25 行。不碰 TUI、不碰涌现哲学。
