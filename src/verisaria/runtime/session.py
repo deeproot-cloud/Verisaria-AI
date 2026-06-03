@@ -1515,7 +1515,9 @@ class GameSession:
 
     @staticmethod
     def _normalize_var_id(raw: str) -> str:
-        return re.sub(r"[^a-z0-9_]", "_", (raw or "").strip().lower()).strip("_")
+        s = re.sub(r"[^a-z0-9_]+", "_", (raw or "").strip().lower()).strip("_")
+        # require at least some ascii letters — a pure-CJK id strips to junk
+        return s if re.search(r"[a-z]", s) else ""
 
     def _register_dynamic_prerequisite(self, prereq) -> str | None:
         """Register a GM-declared prerequisite (arbiter `new_prerequisite`) as a
@@ -1588,8 +1590,12 @@ class GameSession:
 
         # The GM may introduce a prerequisite the world model has no var for — register
         # it as a dynamic var so the player has a structural path to satisfy it.
-        new_var = self._register_dynamic_prerequisite(
-            getattr(outcome.arbiter_output, "new_prerequisite", None))
+        raw_prereq = getattr(outcome.arbiter_output, "new_prerequisite", None)
+        new_var = self._register_dynamic_prerequisite(raw_prereq)
+        if raw_prereq is not None and new_var is None:
+            _clog.info("[t%s]   new_prerequisite proposed but NOT registered "
+                       "(dup/cap/bad-id): %r", self.world.state.tick,
+                       getattr(raw_prereq, "var_id", None))
 
         flag_after = self.world.state.world_vars.get(var_id)
         if _clog.isEnabledFor(logging.INFO):
@@ -1627,8 +1633,12 @@ class GameSession:
         name = self.world.state.display_name(authority_npc)
         request = action.params.get("content") or action.raw_text or ""
         stance = self._AUTHORITY_STANCE.get(outcome.arbiter_output.outcome, "你做出了回应")
+        var_label = self._world_var_specs.get(var_id, {}).get("label", var_id)
+        flag_state = "已经成立" if self.world.state.world_vars.get(var_id) else "尚未成立"
         directive = (
             f"刚才有人对你说：「{request}」。{stance}。"
+            f"（事实底真：『{var_label}』目前{flag_state}。**只陈述你确实知道为真的事**，"
+            "绝不要声称任何尚未发生的进展，也不要虚构你并未亲见的凭证、签章或文件。）"
             "用一句符合你身份的话回应对方（第一人称，不要分析、不要数字）。"
         )
 

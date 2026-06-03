@@ -184,11 +184,17 @@ class LLMArbiter:
                 "也纳入考量：若某项前置已由别处交涉达成（例如所需的世界事实当前已为真，或另一"
                 "变量下已记录了对应的让步），即可视为该条件满足——不要因为'只是口头声称'就忽略"
                 "这些已被结构化记录的既成事实。\n"
-                "你像一位尽职的 GM：**只提当事人在当前世界里够得着的条件**（已有变量/在场 NPC/"
-                "可做的事），不要抛出无路可走的空要求。若你确实要引入一个上面变量里还没有的前置"
-                "（如'先取得某证物''先让某人到场作证'），就在 `new_prerequisite` 里把它**声明成一个"
-                "可满足的世界变量**（给 var_id / label / set_by=能满足它的 NPC / request_keywords），"
-                "这样当事人才有结构化的路径去达成它。\n"
+                "你像一位尽职的 GM：**只提当事人在当前世界里够得着的条件**，不要抛出无路可走的"
+                "空要求。**关键规则**：如果你之所以不批准，是因为当事人必须先达成某个【上面世界变量"
+                "里没有列出的】前置——例如'先取得某编号/回执/签章''先完成某审议''先让某人到场作证或"
+                "书面声明''先拿到另一机构的指令'——你【必须】在 `new_prerequisite` 里把它声明成一个"
+                "新的世界变量，**不能只把它写进 reason 或 established_fact 的散文里**。\n"
+                "  · established_fact 只是给你日后参考的软备忘，当事人无法据此真正完成条件；\n"
+                "  · 只有声明成世界变量，当事人才有结构化路径去达成它（之后该变量翻 true 才算满足）。\n"
+                "  · var_id 必须是 **ascii 蛇形命名**（如 union_pause_order_received、"
+                "archive_review_completed、oro_white_bay_statement_recorded），不要用中文；"
+                "set_by 写能满足它的 NPC（id 或角色），request_keywords 写当事人可能用来达成它的说法。\n"
+                "  · 每出现一个这样的新前置就声明一个（除非它其实等同于上面已列出的某个变量）。\n"
             )
             for v in context.mutable_world_vars:
                 var_id = v.get("var_id", "")
@@ -209,7 +215,17 @@ class LLMArbiter:
                     prompt += f"    · （先前已确立）{fact}\n"
             prompt += "\n"
 
-        prompt += """## 输出要求
+        prompt += """## 示例：当你因"上面没有的新前置"而不批准时（务必声明 new_prerequisite）
+
+当事人请求暂停清洗，但你判断需先取得工会的正式停洗指令，而"工会停洗指令"不在上面的世界变量里：
+{
+  "outcome": "partial_success",
+  "reason": "你有暂停权，但单方面暂停需有工会正式停洗指令作前置，目前没有。",
+  "established_fact": "你愿暂停清洗，前提是先取得工会正式停洗指令。",
+  "new_prerequisite": {"var_id": "union_pause_order_received", "label": "工会停洗指令已取得", "set_by": ["npc.union_steward"], "request_keywords": ["工会指令", "停洗指令", "工会停洗"]}
+}
+
+## 输出要求
 
 返回 JSON，格式如下：
 {

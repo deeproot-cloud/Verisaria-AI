@@ -100,6 +100,31 @@ def test_channel_c_logs_collateral_world_changes(tmp_path):
     assert any("world-changes applied=" in m and "refugees_admitted" in m for m in records)
 
 
+def test_authority_reply_directive_grounds_npc_against_fabrication(tmp_path):
+    """The voiced reply's directive carries the requested var's real state + a
+    no-fabrication guardrail, so the NPC can't claim unrealized progress (the
+    '我看到了梅档案官的章' contradiction)."""
+    g = GameSession(PACK, save_dir=str(tmp_path), llm_backend="fake")
+    captured: dict = {}
+
+    def spy(**kw):
+        captured["directive"] = kw.get("directive")
+        return "恕难从命。"
+
+    g.npc_dialogue_generator.generate_line = spy
+    ao = ArbiterOutput(arbiter_id="t", source_action_id="a", outcome="failure",
+                       reason="r", confidence=0.5)
+    g.arbiter.arbitrate = lambda action, world: ValidatedOutcome(
+        accepted=True, arbiter_output=ao,
+        accepted_state_changes=[], rejected_state_changes=[])
+    g._handle_world_change_request(
+        SimpleNamespace(params={"content": "请开城门"}, raw_text="请开城门"), VAR, AUTH)
+
+    d = captured["directive"] or ""
+    assert "只陈述你确实知道为真的事" in d        # no-fabrication guardrail
+    assert "尚未成立" in d                        # refugees_admitted is currently False
+
+
 def test_set_by_matches_npc_id_or_authority_role(tmp_path):
     """A world var's set_by may name an NPC by id OR by its authority role."""
     g = GameSession(PACK, save_dir=str(tmp_path), llm_backend="fake")
@@ -107,6 +132,32 @@ def test_set_by_matches_npc_id_or_authority_role(tmp_path):
     assert g._authority_npc_for(["npc.captain_brann"]) == "npc.captain_brann"
     # an unknown role resolves to nobody
     assert g._authority_npc_for(["no_such_role"]) is None
+
+
+def test_channel_c_logs_proposed_prereq_that_was_dropped(tmp_path):
+    """When the GM proposes a new_prerequisite that the engine drops (dup/cap/bad
+    id), the log says so — distinguishing 'LLM didn't emit' from 'engine dropped'."""
+    from verisaria.engine.schemas import NewPrerequisite
+    records: list[str] = []
+
+    class _H(logging.Handler):
+        def emit(self, r): records.append(r.getMessage())
+
+    logger = logging.getLogger("verisaria.channel_c")
+    h = _H(); logger.addHandler(h); logger.setLevel(logging.INFO)
+    try:
+        g = GameSession(PACK, save_dir=str(tmp_path), llm_backend="fake")
+        ao = ArbiterOutput(arbiter_id="t", source_action_id="a", outcome="partial_success",
+                           reason="r", confidence=0.5,
+                           new_prerequisite=NewPrerequisite(var_id="纯中文"))  # bad id → dropped
+        g.arbiter.arbitrate = lambda action, world: ValidatedOutcome(
+            accepted=True, arbiter_output=ao,
+            accepted_state_changes=[], rejected_state_changes=[])
+        g._handle_world_change_request(
+            SimpleNamespace(params={"content": "请开城门"}, raw_text="请开城门"), VAR, AUTH)
+    finally:
+        logger.removeHandler(h)
+    assert any("NOT registered" in m for m in records)
 
 
 def test_world_change_trigger_accepts_set_by_npc_id(tmp_path):

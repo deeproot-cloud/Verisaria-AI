@@ -75,6 +75,34 @@ def test_garbage_var_id_is_skipped(tmp_path):
     assert g._register_dynamic_prerequisite(NewPrerequisite(var_id="   ")) is None
 
 
+def test_normalize_collapses_underscore_runs_from_mixed_id(tmp_path):
+    g = _session(tmp_path)
+    # a mixed cjk/ascii id (LLM slipped) keeps the ascii stem, collapsed cleanly
+    assert g._normalize_var_id("union停洗指令变为True") == "union_true"
+    assert g._normalize_var_id("Archive  Review—Completed") == "archive_review_completed"
+
+
+def test_arbiter_prompt_teaches_new_prerequisite_with_example():
+    """The prompt must imperatively elicit new_prerequisite (the regression: real
+    MiniMax never used it) — with an ascii-snake-case requirement and an example."""
+    from verisaria.engine.arbiter import LLMArbiter, ArbiterContext
+    from verisaria.engine.llm import FakeLLMProvider, LLMOrchestrator
+
+    arb = LLMArbiter(llm_orchestrator=LLMOrchestrator(primary_provider=FakeLLMProvider()))
+    action = Action(action_id="a", actor_id="player_001", action_type=ActionType.SOCIAL,
+                    target_id="npc.x", tick=1, params={"verb": "persuade", "content": "暂停"})
+    ctx = ArbiterContext(
+        action=action, actor_attributes={}, target_attributes={},
+        location_id="x", zone_id=None, recent_events=[], world_book_entries=[],
+        mutable_world_vars=[{"var_id": "v", "label": "V", "current": False, "set_by": ["r"]}],
+    )
+    prompt = arb._build_prompt(ctx)
+    assert "new_prerequisite" in prompt
+    assert "ascii" in prompt and "蛇形" in prompt              # id format required
+    assert "union_pause_order_received" in prompt             # worked example present
+    assert "不能只把它写进 reason 或 established_fact" in prompt  # division of labour
+
+
 def test_dynamic_var_routes_a_request_by_npc_id_set_by(tmp_path):
     """A GM-spawned var with set_by = an npc id + keywords routes a player request
     (relies on the id-or-role trigger fix)."""
