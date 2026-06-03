@@ -39,6 +39,7 @@ class VerisariaApp(App):
     #left { width: 30; }
     #map { height: 1fr; border: round $primary-darken-2; padding: 0 1; }
     #agenda { height: 1fr; border: round $primary-darken-2; padding: 0 1; }
+    #godview { height: 1fr; border: round #b65fb6; padding: 0 1; display: none; }
     #center { width: 2fr; }
     #events { height: 1fr; border: round $primary-darken-2; padding: 0 1; }
     #liveline { height: auto; padding: 0 1; }
@@ -50,6 +51,7 @@ class VerisariaApp(App):
     BINDINGS = [
         Binding("ctrl+q", "quit", "退出"),
         Binding("ctrl+c", "quit", "退出", show=False),
+        Binding("ctrl+g", "toggle_god", "上帝视角"),
     ]
 
     def __init__(self, engine: EngineSession) -> None:
@@ -59,6 +61,8 @@ class VerisariaApp(App):
         self._n_events = 0
         self._stream_buf: dict[str, str] = {}   # npc_id → reply so far (live line)
         self._names: dict[str, str] = {}        # npc_id → display name (from snapshot)
+        self._god = False                       # DEBUG god-view toggled on?
+        self._last_snap: P.WorldSnapshot | None = None
 
     def compose(self) -> ComposeResult:
         yield Static(id="status")
@@ -66,6 +70,7 @@ class VerisariaApp(App):
             with Vertical(id="left"):
                 yield Static(id="map")
                 yield Static(id="agenda")
+                yield Static(id="godview")
             with Vertical(id="center"):
                 yield RichLog(id="events", markup=False, wrap=True, highlight=False)
                 yield Static(id="liveline")
@@ -79,6 +84,7 @@ class VerisariaApp(App):
         for wid, title in (
             ("#map", "地图"), ("#agenda", "议程"), ("#events", "事件流"),
             ("#nearby", "附近 NPC"), ("#world", "世界状态"),
+            ("#godview", "DEBUG 上帝视角"),
         ):
             self.query_one(wid).border_title = title
         self._refresh_panels(self.engine.snapshot())
@@ -153,11 +159,33 @@ class VerisariaApp(App):
     def _refresh_panels(self, snap: P.WorldSnapshot) -> None:
         # co-located names, so a streamed reply's live line can be prefixed correctly
         self._names = {e.id: e.name for e in snap.present}
+        self._last_snap = snap
         self.query_one("#status", Static).update(_m(R.render_status(snap)))
         self.query_one("#map", Static).update(_m(R.render_map(snap)))
         self.query_one("#agenda", Static).update(_m(R.render_agenda(snap)))
         self.query_one("#nearby", Static).update(_m(R.render_nearby(snap)))
         self.query_one("#world", Static).update(_m(R.render_world(snap)))
+        if self._god:  # keep the debug view current as the world changes
+            self._refresh_godview()
+
+    # -- DEBUG god-view: swap the left column to each co-located NPC's real state --
+    def action_toggle_god(self) -> None:
+        self._god = not self._god
+        self.query_one("#map").display = not self._god
+        self.query_one("#agenda").display = not self._god
+        self.query_one("#godview").display = self._god
+        if self._god:
+            self._refresh_godview()
+
+    def _refresh_godview(self) -> None:
+        views = []
+        if self._last_snap is not None:
+            for e in self._last_snap.present:
+                if e.type == "npc":
+                    gv = self.engine.debug_god_view(e.id)
+                    if gv is not None:
+                        views.append(gv)
+        self.query_one("#godview", Static).update(_m(R.render_godview(views)))
 
     def _finish_tick(self) -> None:
         self._busy = False

@@ -325,6 +325,32 @@ def snapshot_to_dict(s: WorldSnapshot) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# DEBUG god-view (out-of-band) — DELIBERATELY crosses the A5 boundary
+#
+# NOT part of WorldSnapshot and never surfaced in a normal session. A
+# development/playtest tool: see what an NPC REALLY knows (incl. 🔒 locked
+# world-book entries its faction can't access), its full stance toward the
+# player, and its private memory — to diagnose why it behaved as it did.
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class GodKnowledge:
+    layer: str
+    framing: str       # how the NPC would frame it ("你确知" / "你被教导要相信" …)
+    content: str
+    locked: bool = False   # exists in the world but THIS NPC's scope can't see it
+
+
+@dataclass(frozen=True)
+class GodView:
+    npc_id: str
+    name: str
+    knowledge: list[GodKnowledge] = field(default_factory=list)
+    relationship: list[RelationshipDescriptor] = field(default_factory=list)  # full dims → player
+    memories: list[str] = field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # The result of submitting one Command
 # ---------------------------------------------------------------------------
 

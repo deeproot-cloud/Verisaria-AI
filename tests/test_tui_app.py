@@ -116,6 +116,41 @@ def test_tui_typewriter_accumulates_then_commits(tmp_path):
     asyncio.run(scenario())
 
 
+def test_tui_god_view_toggles_left_column(tmp_path):
+    """Ctrl+G swaps the left column (map+agenda) for the DEBUG god-view, which
+    renders each co-located NPC's real state; toggling again restores it."""
+    es = EngineSession.start(PACK, save_dir=str(tmp_path), llm_backend="fake")
+    app = VerisariaApp(es)
+    seen_ids: list[str] = []
+    orig = es.debug_god_view
+    es.debug_god_view = lambda nid: (seen_ids.append(nid), orig(nid))[1]
+
+    state: dict = {}
+
+    async def scenario():
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            assert app._god is False
+            assert app.query_one("#godview").display is False
+            await pilot.press("ctrl+g")
+            await pilot.pause()
+            state["god_on"] = app._god
+            state["godview_shown"] = app.query_one("#godview").display
+            state["map_hidden"] = app.query_one("#map").display
+            await pilot.press("ctrl+g")
+            await pilot.pause()
+            state["god_off"] = app._god
+            state["map_back"] = app.query_one("#map").display
+
+    asyncio.run(scenario())
+
+    assert state["god_on"] is True and state["godview_shown"] is True
+    assert state["map_hidden"] is False              # map hidden while god-view up
+    assert state["god_off"] is False and state["map_back"] is True
+    # the god-view queried real state for the co-located NPCs (watch + refugees etc.)
+    assert any(nid.startswith("npc.") for nid in seen_ids)
+
+
 def test_tui_run_log_captures_command_events_and_timing(tmp_path):
     """--log writes a trace: the submitted command, each event, and tick timing —
     so a session's problems are diagnosable after the fact."""

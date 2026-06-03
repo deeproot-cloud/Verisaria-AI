@@ -153,6 +153,30 @@ def render_world(snapshot: P.WorldSnapshot) -> str:
     return "\n".join(rows)
 
 
+def render_godview(views: list[P.GodView]) -> str:
+    """DEBUG 上帝视角 — out-of-world (magenta), DELIBERATELY past the A5 line.
+    Per NPC: full stance toward the player, every world-book entry it can access,
+    🔒 the ones its faction/region can't, and its private memory."""
+    if not views:
+        return f"[{MAGENTA}]DEBUG 上帝视角：附近没有 NPC。[/]"
+    blocks: list[str] = []
+    for v in views:
+        lines = [f"[{MAGENTA} bold]☉ {_esc(v.name)}[/]  [dim]（出戏·调试）[/]"]
+        if v.relationship:
+            dims = "  ".join(f"{_esc(d.label)}{d.value:.2f}" for d in v.relationship)
+            lines.append(f"[{MAGENTA}]  立场 {dims}[/]")
+        for k in v.knowledge:
+            if k.locked:
+                lines.append(f"[dim]  🔒 {_esc(k.content)}（派系不可见）[/]")
+            else:
+                lines.append(f"[{MAGENTA}]  ·（{_esc(k.framing)}）{_esc(k.content)}[/]")
+        for m in v.memories[:5]:
+            if m:
+                lines.append(f"[{MAGENTA} italic]  ◦ {_esc(m)}[/]")
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
 def render_status(snapshot: P.WorldSnapshot) -> str:
     """One-line status header markup."""
     p = snapshot.player

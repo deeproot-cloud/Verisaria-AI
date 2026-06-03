@@ -98,6 +98,58 @@ class EngineSession:
             return g._handle_command(f"/load {command.save_id}") or ""
         raise TypeError(f"Unsupported command: {type(command).__name__}")
 
+    # -- DEBUG: out-of-band god view (DELIBERATELY crosses the A5 boundary) --
+
+    def debug_god_view(self, npc_id: str) -> protocol.GodView | None:
+        """The NPC's REAL state for playtest diagnosis: every world-book entry
+        (accessible AND 🔒 locked by faction/region), its full stance toward the
+        player, and its private memory. Never used in a normal session — this is
+        the opposite of ``snapshot``, which only crosses player-perceivable data."""
+        from verisaria.engine.world_book_filter import WorldBookFilter
+
+        g = self._game
+        state = g.world.state
+        entity = state.get_entity(npc_id)
+        if entity is None:
+            return None
+
+        gen = g.npc_dialogue_generator
+        world_book = list(getattr(gen, "world_book", []) or [])
+        try:
+            visible_ids = {id(e) for e in WorldBookFilter.filter_for_entity(world_book, entity)}
+        except Exception:
+            visible_ids = set()
+        framing = getattr(gen, "_LAYER_FRAMING", {})
+        knowledge = [
+            protocol.GodKnowledge(
+                layer=getattr(e, "layer", "") or "",
+                framing=framing.get(getattr(e, "layer", ""), "你知道"),
+                content=getattr(e, "content", "") or "",
+                locked=id(e) not in visible_ids,
+            )
+            for e in world_book
+        ]
+
+        relationship: list = []
+        for snap in g.relationship_store.relationships_toward(g.player_id):
+            if snap.npc_id == npc_id:
+                relationship = [
+                    protocol.relationship_descriptor(dim, val)
+                    for dim, val in snap.dimensions.items()
+                ]
+                break
+
+        memories: list[str] = []
+        try:
+            memories = [getattr(m, "content", "") for m in g.memory_store.get_all(npc_id)][:8]
+        except Exception:
+            pass
+
+        return protocol.GodView(
+            npc_id=npc_id, name=state.display_name(npc_id),
+            knowledge=knowledge, relationship=relationship, memories=memories,
+        )
+
     # -- pull player-perceivable state for pane rendering (A5 boundary) --
 
     def snapshot(self) -> protocol.WorldSnapshot:

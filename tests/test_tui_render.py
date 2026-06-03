@@ -124,6 +124,30 @@ def test_render_agenda_shows_stances_drives_questions():
     assert "接纳难民" in out and "弄清这里发生了什么" in out and "队长会为谁担风险" in out
 
 
+def test_render_godview_marks_locked_and_is_magenta():
+    views = [P.GodView(
+        npc_id="npc.sentry_voss", name="哨兵伏斯",
+        knowledge=[
+            P.GodKnowledge(layer="faction_propaganda", framing="你被教导要相信",
+                           content="圣焰教会宣称恶魔是祸根"),
+            P.GodKnowledge(layer="forbidden_knowledge", framing="隐情",
+                           content="守军屠杀过求和使节", locked=True),
+        ],
+        relationship=[P.relationship_descriptor("suspicion", 0.42)],
+        memories=["卡泽提到雪地里的尸体"],
+    )]
+    out = R.render_godview(views)
+    assert "哨兵伏斯" in out and R.MAGENTA in out
+    assert "🔒" in out and "守军屠杀过求和使节" in out      # locked, distinct
+    assert "圣焰教会宣称恶魔是祸根" in out                   # accessible, framed
+    assert "怀疑" in out                                     # full stance dim
+    assert "卡泽提到雪地里的尸体" in out                     # private memory
+
+
+def test_render_godview_empty():
+    assert "DEBUG" in R.render_godview([])
+
+
 def test_bar_is_solid_and_scales():
     assert R._bar(1.0, 10) == "█" * 10
     assert R._bar(0.0, 10) == "░" * 10
