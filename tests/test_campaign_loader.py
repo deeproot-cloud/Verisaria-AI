@@ -107,6 +107,25 @@ class TestBuildWorldState:
         assert "player_001" in town_square.zones["center"].occupant_ids
         assert "npc.guard_b" in town_square.zones["center"].occupant_ids
 
+    def test_declared_empty_location_is_loaded(self) -> None:
+        """A location declared in initial_locations but with no entity standing in it
+        must still be built (a reachable / escortable empty room), not dropped."""
+        pack = ContentPack(
+            content_pack_id="x", schema_version="1.0.0",
+            world_premise={"era": "e", "tone": "t", "central_tension": "c"},
+            starting_location="hall",
+            initial_entities=[
+                {"entity_id": "player_001", "entity_type": "player", "location_id": "hall"}],
+            initial_locations=[
+                {"location_id": "hall", "name": "大厅",
+                 "connections": [{"to": "empty_room", "distance": "adjacent"}]},
+                {"location_id": "empty_room", "name": "空房间", "connections": []},
+            ],
+        )
+        state = CampaignLoader.build_world_state(pack)
+        assert "empty_room" in state.locations          # not silently dropped
+        assert state.locations["empty_room"].name == "空房间"
+
     def test_build_from_minimal_pack(self) -> None:
         pack = CampaignLoader.load_from_file(FIXTURE_DIR / "minimal_valid.json")
         state = CampaignLoader.build_world_state(pack)

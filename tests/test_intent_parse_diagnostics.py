@@ -66,6 +66,9 @@ def test_named_third_party_not_flagged_ambiguous():
     assert parser._uniquely_names_entity("队长布兰", w) is True    # names captain_brann
     assert parser._uniquely_names_entity("他", w) is False        # pronoun stays ambiguous
     assert parser._uniquely_names_entity("某个谁", w) is False     # names nobody
+    # location names/ids resolve too (the escort destination friction)
+    assert parser._uniquely_names_entity("兵营", w) is True        # barracks display name
+    assert parser._uniquely_names_entity("barracks", w) is True    # location id
 
 
 def test_movement_with_npc_mention_does_not_pop_menu():

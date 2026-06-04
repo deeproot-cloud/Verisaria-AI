@@ -370,17 +370,21 @@ class IntentParser:
 
     @staticmethod
     def _uniquely_names_entity(ref: str, world: WorldState) -> bool:
-        """Whether ``ref`` clearly names exactly one known entity (a proper name like
-        '梅档案官'), as opposed to a pronoun/deictic (他/她/你/这/那), which stays
-        genuinely ambiguous."""
+        """Whether ``ref`` clearly names exactly one known entity OR location (a
+        proper name like '梅档案官' / '旧检修梯', or a location id), as opposed to a
+        pronoun/deictic (他/她/你/这/那), which stays genuinely ambiguous."""
         r = (ref or "").strip()
         if not r or any(p in r for p in ("他", "她", "它", "你", "我", "这", "那", "TA")):
             return False
-        matches = {
+        matches: set[str] = {
             eid for eid, e in world.entities.items()
             if (getattr(e, "name", "") or "") and
             ((e.name == r) or (r in e.name) or (e.name in r))
         }
+        for lid, loc in world.locations.items():
+            name = getattr(loc, "name", "") or ""
+            if lid == r or (name and ((name == r) or (r in name) or (name in r))):
+                matches.add(lid)
         return len(matches) == 1
 
     @staticmethod

@@ -238,7 +238,10 @@ class CampaignLoader:
         """Construct an initial WorldState from a validated ContentPack."""
         state = WorldState(tick=0)
 
-        # Build locations from entity locations
+        # Build locations from entity locations AND every declared location — an
+        # empty room (no one currently standing in it) is still a reachable /
+        # escortable destination and belongs on the map. (Previously only entity
+        # locations were built, silently dropping declared-but-empty rooms.)
         location_ids = set()
         zone_data: dict[str, dict[str, Any]] = {}
         for ent in pack.initial_entities:
@@ -248,6 +251,10 @@ class CampaignLoader:
                 location_ids.add(loc)
             if loc and zone:
                 zone_data.setdefault(loc, {})[zone] = ent.get("zone_info", {})
+        for loc_def in pack.initial_locations:
+            lid = loc_def.get("location_id")
+            if lid:
+                location_ids.add(lid)
 
         for loc_id in location_ids:
             zones = {}
