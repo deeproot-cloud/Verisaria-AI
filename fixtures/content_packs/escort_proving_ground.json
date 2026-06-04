@@ -84,10 +84,20 @@
   ],
   "initial_relationships": [
     {"npc_id": "npc.miller_anya", "target_id": "player_001", "type": "eager_ally", "dimensions": {"trust": 0.4, "familiarity": 0.2}},
-    {"npc_id": "npc.warden_kang", "target_id": "player_001", "type": "neutral", "dimensions": {"familiarity": 0.1}}
+    {"npc_id": "npc.warden_kang", "target_id": "player_001", "type": "guarded_goodwill", "dimensions": {"trust": 0.25, "familiarity": 0.15}}
   ],
   "initial_conversations": [],
   "world_state_vars": [
+    {
+      "var_id": "anya_testimony_given",
+      "label": "安雅是否已当面向闸官讲清上游塌方",
+      "type": "bool",
+      "initial": false,
+      "mutable": true,
+      "public": true,
+      "set_by": ["npc.miller_anya"],
+      "request_keywords": ["作证", "当面讲", "讲清楚", "亲口", "把你看到的", "亲历", "讲给", "说清楚", "陈述", "告诉老康", "告诉闸官"]
+    },
     {
       "var_id": "sluice_opened",
       "label": "水闸是否开启放水",
