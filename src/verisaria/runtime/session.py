@@ -442,6 +442,14 @@ class GameSession:
         player_before = self.world.state.get_entity(self.player_id)
         viewer_location = player_before.location_id if player_before else None
 
+        # NPC positions before the queue resolves, so we can surface any NPC that
+        # walks into or out of the player's location this tick (the living world).
+        npc_locs_before = {
+            e.entity_id: e.location_id
+            for e in self.world.state.entities.values()
+            if e.entity_id != self.player_id and getattr(e, "entity_type", "") == "npc"
+        }
+
         # Resolve queue → events + combat actions
         events, combat_actions = self.action_queue.resolve_with_combat(self.world)
 
@@ -459,12 +467,21 @@ class GameSession:
         # NB: player_before is a LIVE entity reference that resolve() mutates in
         # place, so compare against viewer_location (the string captured pre-resolve).
         player_after = self.world.state.get_entity(self.player_id)
-        if (player_after and viewer_location
-                and player_after.location_id != viewer_location):
+        player_moved = bool(
+            player_after and viewer_location
+            and player_after.location_id != viewer_location
+        )
+        if player_moved:
             self._emit(protocol.PlayerMoved(
                 tick=self.world.state.tick,
                 from_loc=self.world.state.location_label(viewer_location),
                 to_loc=self.world.state.location_label(player_after.location_id)))
+
+        # Autonomous NPC enter/leave — only when the player held still. A player
+        # move already redraws the scene (the next snapshot's «附近» list shows who
+        # is there); stacking NPC-move lines on top of that would be noise.
+        if not player_moved:
+            self._emit_npc_perimeter_moves(npc_locs_before, viewer_location)
 
         # Observation dispatch + Subjectivity pipeline for non-combat events
         dispatched = self._process_events_for_subjectivity(events)
@@ -552,6 +569,27 @@ class GameSession:
             self._emit(protocol.Narration(
                 tick=self.world.state.tick, text=ambient_narration))
         return narrative
+
+    def _emit_npc_perimeter_moves(
+        self, locs_before: dict[str, str], viewer_location: str | None
+    ) -> None:
+        """Surface any NPC that walked into or out of the player's location this
+        tick as an ``NpcMoved`` event — the perceivable edge of autonomous NPC
+        movement. A5: judged relative to ``viewer_location`` (where the player
+        narrated from), so a move elsewhere the player can't see stays silent."""
+        if not viewer_location:
+            return
+        for npc_id, before in locs_before.items():
+            ent = self.world.state.get_entity(npc_id)
+            after = ent.location_id if ent else None
+            if after is None or after == before:
+                continue
+            if after == viewer_location or before == viewer_location:
+                self._emit(protocol.NpcMoved(
+                    tick=self.world.state.tick, npc_id=npc_id,
+                    name=self.world.state.display_name(npc_id),
+                    from_loc=self.world.state.location_label(before),
+                    to_loc=self.world.state.location_label(after)))
 
     def _handle_clarification_response(self, response: str) -> str:
         """Process the player's reply during an active clarification exchange."""
