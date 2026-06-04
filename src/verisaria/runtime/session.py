@@ -1700,13 +1700,23 @@ class GameSession:
     def _handle_escort_request(self, action, npc_id: str, dest_id: str) -> str:
         """Adjudicate whether a co-located NPC will accompany the player to dest_id;
         on agreement, move them both there (so witness / on-site prerequisites become
-        reachable). Structurally identical to a world-change. (P2c)"""
+        reachable). Adjudicated as a WILLINGNESS judgment (persona + stance), not a
+        world-change with prerequisites. (P2c)"""
         self._streamed_npc = None
-        outcome = self.arbiter.arbitrate(action, self.world)
-        agreed = outcome.arbiter_output.outcome == "success"
-
         name = self.world.state.display_name(npc_id)
         dest_label = self.world.state.location_label(dest_id)
+        snap = self.relationship_store.get(npc_id, self.player_id)
+        self.world.escort_request = {
+            "npc_name": name,
+            "dest": dest_label,
+            "relationship": ({k: round(v, 2) for k, v in snap.dimensions.items() if v > 0}
+                             if snap else {}),
+        }
+        try:
+            outcome = self.arbiter.arbitrate(action, self.world)
+        finally:
+            self.world.escort_request = None
+        agreed = outcome.arbiter_output.outcome == "success"
         npc = self.world.state.get_entity(npc_id)
         player = self.world.state.get_entity(self.player_id)
         from_loc = npc.location_id if npc else None

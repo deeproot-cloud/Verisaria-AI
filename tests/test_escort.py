@@ -73,6 +73,46 @@ def test_escort_destination_matches_abbreviation(tmp_path):
     assert g._resolve_destination_in_text("我们随便走走") is None          # no location named
 
 
+def test_escort_uses_willingness_prompt_not_world_change():
+    """Escort is adjudicated as plain willingness (persona + stance), not a
+    world-change with prerequisites — the prompt must drop all prerequisite
+    machinery that biased escort toward refusal."""
+    from verisaria.engine.arbiter import LLMArbiter, ArbiterContext
+    from verisaria.engine.llm import FakeLLMProvider, LLMOrchestrator
+    from verisaria.engine.schemas import Action
+
+    arb = LLMArbiter(llm_orchestrator=LLMOrchestrator(primary_provider=FakeLLMProvider()))
+    action = Action(action_id="a", actor_id="player_001", action_type=ActionType.SPEECH,
+                    target_id="npc.x", tick=1, params={"content": "跟我去兵营"})
+    ctx = ArbiterContext(
+        action=action, actor_attributes={}, target_attributes={"trait": "loyal"},
+        location_id="x", zone_id=None, recent_events=[], world_book_entries=[],
+        escort={"npc_name": "哨兵伏斯", "dest": "兵营", "relationship": {"trust": 0.4}})
+    prompt = arb._build_prompt(ctx)
+    assert "陪同当事人前往" in prompt and "社交意愿" in prompt
+    assert "哨兵伏斯" in prompt and "兵营" in prompt and "trust 0.40" in prompt
+    assert "new_prerequisite" not in prompt and "process_started" not in prompt
+    assert "可改变的世界状态" not in prompt          # no world-var prerequisite section
+
+
+def test_handle_escort_passes_stance_and_resets_context(tmp_path):
+    g = _session(tmp_path)
+    captured: dict = {}
+
+    def fake_arb(action, world):
+        captured["escort"] = dict(getattr(world, "escort_request", None) or {})
+        ao = ArbiterOutput(arbiter_id="t", source_action_id="a", outcome="failure",
+                           reason="r", confidence=0.5)
+        return ValidatedOutcome(accepted=True, arbiter_output=ao,
+                                accepted_state_changes=[], rejected_state_changes=[])
+
+    g.arbiter.arbitrate = fake_arb
+    g._handle_escort_request(_speech("跟我去兵营"), "npc.sentry_voss", "barracks")
+    assert captured["escort"]["dest"] == "兵营"               # destination label passed
+    assert isinstance(captured["escort"]["relationship"], dict)
+    assert getattr(g.world, "escort_request", None) is None    # reset after adjudication
+
+
 def test_escort_routes_through_run_tick(tmp_path):
     from verisaria.engine.schemas import ParsedIntent, CommitmentLevel
     g = _session(tmp_path)

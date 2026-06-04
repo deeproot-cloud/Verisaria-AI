@@ -39,6 +39,10 @@ class ArbiterContext:
     # The real NPC roster {id, authority, location}, so a new_prerequisite's set_by
     # names an NPC that actually exists instead of an invented one.
     npc_roster: list[dict[str, Any]] = field(default_factory=list)
+    # Set for a P2c escort request {npc_name, dest, relationship}: adjudicate plain
+    # WILLINGNESS to accompany (persona + stance), NOT a world-change with
+    # prerequisites — reusing the world-change framing biased escort toward refusal.
+    escort: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +143,7 @@ class LLMArbiter:
             if e.entity_type == "npc"
         ]
 
+        escort = getattr(world, "escort_request", None)
         return ArbiterContext(
             action=action,
             actor_attributes=actor.attributes if actor else {},
@@ -147,12 +152,17 @@ class LLMArbiter:
             zone_id=actor.zone_id if actor else None,
             recent_events=recent,
             world_book_entries=[e.content for e in filtered],
-            mutable_world_vars=list(getattr(world, "mutable_world_vars", []) or []),
+            # escort is a willingness judgment — no world-var/prerequisite context
+            mutable_world_vars=([] if escort else list(getattr(world, "mutable_world_vars", []) or [])),
             npc_roster=roster,
+            escort=escort,
         )
 
     def _build_prompt(self, context: ArbiterContext) -> str:
         """Build the arbitration prompt."""
+        if context.escort:
+            return self._build_escort_prompt(context)
+
         action = context.action
         actor_attrs = context.actor_attributes
         target_attrs = context.target_attributes
@@ -274,6 +284,45 @@ class LLMArbiter:
 }
 """
         return prompt
+
+    def _build_escort_prompt(self, context: ArbiterContext) -> str:
+        """A P2c escort is a plain WILLINGNESS judgment — would this NPC, given their
+        persona and stance toward the player, get up and come along? — not a
+        world-change requiring prerequisites. Framing it as the latter (the shared
+        world-change prompt) biased escort toward 'I need X first' refusals."""
+        esc = context.escort or {}
+        action = context.action
+        content = (action.params or {}).get("content", "") if action else ""
+        rel = esc.get("relationship") or {}
+        rel_str = "、".join(f"{k} {v:.2f}" for k, v in rel.items()) or "（无既有关系，初次打交道）"
+        recent = "\n".join(f"- {e['summary']}" for e in context.recent_events) or "（无）"
+        return f"""你是一名公正的仲裁者，判断一个 NPC 此刻是否愿意【陪同当事人前往某地】。
+
+## 请求
+- 对象 NPC：{esc.get('npc_name', '')}
+- 目的地：{esc.get('dest', '')}
+- 当事人原话：{content}
+
+## 该 NPC 的人设/属性
+{context.target_attributes or {}}
+
+## 该 NPC 对当事人的态度（关系维度，0–1）
+{rel_str}
+
+## 最近发生的事
+{recent}
+
+## 判断要求
+只根据这个 NPC 的【性格、对当事人的态度、当前处境与利害】，判断 TA 此刻愿不愿意起身跟着走：
+- success = 愿意，当场就跟着走；
+- partial_success = 没当场拒绝，但有条件或在犹豫（要个保障、要先办完手头的事…）；
+- failure = 不愿意。
+这是一次**社交意愿**判断，**不要**把它当成需要满足世界前置变量的请求。给真实、可信、贴合人设的
+判断；当 TA 对当事人信任足够、风险不高时，就让 TA 答应同行。
+
+返回 JSON：
+{{"outcome": "success" | "partial_success" | "failure", "reason": "理由（80字内）", "confidence": 0.0-1.0, "narration_hint": "给叙事者的提示（可空）"}}
+"""
 
     def _build_validator_context(self, context: ArbiterContext, world: WorldCore) -> dict[str, Any]:
         """Build context dict for State Validator from real world state."""
