@@ -93,6 +93,10 @@ class GameSession:
 
         # Core world
         self.world = WorldCore(initial_state=self.world_state)
+        # Expose the pack's world-book to the arbiter so it can read an authority's
+        # own stated stance (e.g. "I open the sluice for a witness who testifies"),
+        # filtered per-entity at adjudication time. A5 still holds (filter_for_entity).
+        self.world.world_book_entries = getattr(self.pack, "world_book", []) or []
 
         # LLM pipeline
         llm_backend = kwargs.get("llm_backend", "fake")
@@ -2265,6 +2269,7 @@ class GameSession:
             try:
                 save_data = self.persistence.load(arg)
                 self.world = self.persistence.restore_world_core(save_data)
+                self.world.world_book_entries = getattr(self.pack, "world_book", []) or []
                 pack_path = Path(f"fixtures/content_packs/{save_data.content_pack_id}.json")
                 if pack_path.exists():
                     self.pack = CampaignLoader.load_from_file(pack_path)

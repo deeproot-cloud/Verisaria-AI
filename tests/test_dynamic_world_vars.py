@@ -135,10 +135,34 @@ def test_arbiter_prompt_teaches_new_prerequisite_with_example():
     assert "ascii" in prompt and "蛇形" in prompt              # id format required
     assert "union_pause_order_received" in prompt             # worked example present
     assert "不能只把它写进 reason 或 established_fact" in prompt  # division of labour
-    # convergence rules (a)+(b): no infinite prerequisite recursion
+    # convergence rules (a)+(b)+(c): no infinite prerequisite recursion
     assert "避免前置无限递归" in prompt
     assert "本身能在一两步内被满足" in prompt                    # (a) bottom-out: shallow prereqs only
     assert "做足铺垫时就放行" in prompt                          # (b) ledger sufficiency → success
+    assert "不要与自己的立场自相矛盾" in prompt                  # (c) honor the authority's stated condition
+
+
+def test_arbiter_prompt_carries_target_persona_and_stated_stance():
+    """The world-change judge must see the authority's traits AND their own world-book
+    stance (their stated release-condition), so it can honor it instead of inventing
+    contradictory new prerequisites."""
+    from verisaria.engine.arbiter import LLMArbiter, ArbiterContext
+    from verisaria.engine.llm import FakeLLMProvider, LLMOrchestrator
+
+    arb = LLMArbiter(llm_orchestrator=LLMOrchestrator(primary_provider=FakeLLMProvider()))
+    action = Action(action_id="a", actor_id="player_001", action_type=ActionType.SOCIAL,
+                    target_id="npc.kang", tick=1, params={"verb": "persuade", "content": "开闸"})
+    ctx = ArbiterContext(
+        action=action, actor_attributes={}, target_attributes={"faction": "gate"},
+        target_traits=["公道", "讲道理"],
+        target_world_book=["闸官老康为人公道：只要有亲历者当面讲清，他就肯开闸放水。"],
+        location_id="x", zone_id=None, recent_events=[], world_book_entries=[],
+        mutable_world_vars=[{"var_id": "sluice_opened", "label": "开闸", "current": False, "set_by": ["gate"]}],
+    )
+    prompt = arb._build_prompt(ctx)
+    assert "公道" in prompt and "讲道理" in prompt                  # traits
+    assert "只要有亲历者当面讲清" in prompt                        # the authority's stated condition
+    assert "TA 自己心里清楚的立场" in prompt
 
 
 def test_dynamic_var_routes_a_request_by_npc_id_set_by(tmp_path):

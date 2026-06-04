@@ -46,6 +46,10 @@ class ArbiterContext:
     # The target NPC's persona traits — the author's primary "what they're like"
     # signal. Without it the escort willingness judge only saw bare attributes.
     target_traits: list[str] = field(default_factory=list)
+    # World-book entries the TARGET authority knows — their own stated stance/
+    # release-conditions ("I open for a witness who testifies"), so the arbiter can
+    # honor them instead of inventing contradictory new prerequisites.
+    target_world_book: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +139,10 @@ class LLMArbiter:
         # optional injected attribute for testing.
         raw_entries = getattr(world, 'world_book_entries', [])
         filtered = WorldBookFilter.filter_for_entity(raw_entries, actor)
+        target_world_book = (
+            [e.content for e in WorldBookFilter.filter_for_entity(raw_entries, target)]
+            if target else []
+        )
 
         roster = [
             {
@@ -160,6 +168,7 @@ class LLMArbiter:
             mutable_world_vars=([] if escort else list(getattr(world, "mutable_world_vars", []) or [])),
             npc_roster=roster,
             escort=escort,
+            target_world_book=target_world_book,
         )
 
     def _build_prompt(self, context: ArbiterContext) -> str:
@@ -185,12 +194,15 @@ class LLMArbiter:
 {actor_attrs}
 
 """
-        if target_attrs:
-            prompt += f"""## 目标属性
-
-{target_attrs}
-
-"""
+        if target_attrs or context.target_traits or context.target_world_book:
+            prompt += "## 目标（这位 NPC）的人设与立场\n\n"
+            if context.target_traits:
+                prompt += f"- 性格/特质：{'、'.join(context.target_traits)}\n"
+            if target_attrs:
+                prompt += f"- 属性：{target_attrs}\n"
+            for wb in context.target_world_book:
+                prompt += f"- （TA 自己心里清楚的立场/规矩）{wb}\n"
+            prompt += "\n"
 
         if context.recent_events:
             prompt += "## 最近事件\n\n"
@@ -241,6 +253,10 @@ class LLMArbiter:
                 "前置变量】通盘看——若它们已经覆盖了请求的**实质核心**，剩下的只是程序性手续（盖章、登记、"
                 "口头确认、走个过场），就应当判 **success**，**不要**再派生新前置。一位尽职的权威在当事人"
                 "人证物证齐、该跑的腿都跑齐之后会拍板办事，而不是无止境地再加一道手续。\n"
+                "  · (c) **不要与自己的立场自相矛盾**：上面『目标的人设与立场』里若已**明示了 TA 会在什么"
+                "条件下放行**（例如'只要有亲历者当面作证就开闸'），而那个条件**现在已被满足**（对应前置变量"
+                "已为真 / 已确立事实覆盖），你就【必须】判 **success**——绝不可在 TA 自己说过的条件已达成后，"
+                "又临时加一道 TA 立场里没有的新前置（如临时索要第三方背书、上级备案）。那是出尔反尔，不真实。\n"
             )
             for v in context.mutable_world_vars:
                 var_id = v.get("var_id", "")
