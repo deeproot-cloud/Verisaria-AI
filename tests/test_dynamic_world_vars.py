@@ -44,7 +44,8 @@ def test_new_prerequisite_registers_as_dynamic_var_initially_false(tmp_path):
 
 def test_dynamic_var_is_settable_and_flips_only_on_success(tmp_path):
     g = _session(tmp_path)
-    _request_with_prereq(g, NewPrerequisite(var_id="evidence_secured", label="证据"))
+    _request_with_prereq(g, NewPrerequisite(
+        var_id="evidence_secured", label="证据", set_by=["npc.captain_brann"]))
     # the dynamic spec passes the mutability gate, so a real success can flip it
     assert g.set_world_var("evidence_secured", True) is True
     assert g.world.state.world_vars["evidence_secured"] is True
@@ -57,22 +58,55 @@ def test_dynamic_var_dedups_and_never_overwrites_pack_var(tmp_path):
     assert g._register_dynamic_prerequisite(NewPrerequisite(var_id=VAR, label="X")) is None
     assert g._world_var_specs[VAR] == before
     # registering the same dynamic id twice yields one spec
-    assert g._register_dynamic_prerequisite(NewPrerequisite(var_id="dup_v")) == "dup_v"
-    assert g._register_dynamic_prerequisite(NewPrerequisite(var_id="dup_v")) is None
+    sb = ["npc.captain_brann"]
+    assert g._register_dynamic_prerequisite(NewPrerequisite(var_id="dup_v", set_by=sb)) == "dup_v"
+    assert g._register_dynamic_prerequisite(NewPrerequisite(var_id="dup_v", set_by=sb)) is None
 
 
 def test_dynamic_var_count_is_capped(tmp_path):
     g = _session(tmp_path)
     for i in range(g._MAX_DYNAMIC_VARS + 5):
-        g._register_dynamic_prerequisite(NewPrerequisite(var_id=f"v_{i}"))
+        g._register_dynamic_prerequisite(NewPrerequisite(var_id=f"v_{i}", set_by=["npc.captain_brann"]))
     dyn = [s for s in g._world_var_specs.values() if s.get("dynamic")]
     assert len(dyn) == g._MAX_DYNAMIC_VARS
 
 
 def test_garbage_var_id_is_skipped(tmp_path):
     g = _session(tmp_path)
-    assert g._register_dynamic_prerequisite(NewPrerequisite(var_id="纯中文")) is None
-    assert g._register_dynamic_prerequisite(NewPrerequisite(var_id="   ")) is None
+    sb = ["npc.captain_brann"]
+    assert g._register_dynamic_prerequisite(NewPrerequisite(var_id="纯中文", set_by=sb)) is None
+    assert g._register_dynamic_prerequisite(NewPrerequisite(var_id="   ", set_by=sb)) is None
+
+
+def test_phantom_set_by_npc_is_not_registered(tmp_path):
+    """A var whose set_by names only non-existent NPCs is a dead end — not registered.
+    A mix keeps just the real satisfier(s)."""
+    g = _session(tmp_path)
+    assert g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="union_pause_order_received", set_by=["npc.union_steward"])) is None
+    assert "union_pause_order_received" not in g._world_var_specs
+
+    vid = g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="mixed_v", set_by=["npc.union_steward", "npc.captain_brann"]))
+    assert vid == "mixed_v"
+    assert g._world_var_specs["mixed_v"]["set_by"] == ["npc.captain_brann"]
+
+
+def test_arbiter_prompt_includes_npc_roster():
+    from verisaria.engine.arbiter import LLMArbiter, ArbiterContext
+    from verisaria.engine.llm import FakeLLMProvider, LLMOrchestrator
+
+    arb = LLMArbiter(llm_orchestrator=LLMOrchestrator(primary_provider=FakeLLMProvider()))
+    action = Action(action_id="a", actor_id="player_001", action_type=ActionType.SOCIAL,
+                    target_id="npc.x", tick=1, params={"verb": "persuade", "content": "x"})
+    ctx = ArbiterContext(
+        action=action, actor_attributes={}, target_attributes={}, location_id="l",
+        zone_id=None, recent_events=[], world_book_entries=[],
+        npc_roster=[{"id": "npc.courier_tamsin", "authority": "union_authority", "location": "valley_platform"}],
+    )
+    prompt = arb._build_prompt(ctx)
+    assert "npc.courier_tamsin" in prompt and "union_authority" in prompt
+    assert "set_by 只能从这里选真实 id" in prompt
 
 
 def test_normalize_collapses_underscore_runs_from_mixed_id(tmp_path):

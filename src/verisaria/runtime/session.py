@@ -1549,10 +1549,17 @@ class GameSession:
             return None  # empty/garbage id, or already declared (pack or earlier)
         if sum(1 for s in self._world_var_specs.values() if s.get("dynamic")) >= self._MAX_DYNAMIC_VARS:
             return None
+        # Keep only set_by entries that resolve to a REAL NPC — the GM sometimes
+        # invents a satisfier (e.g. npc.union_steward) that doesn't exist, which would
+        # make the var unsatisfiable. No real satisfier → don't register a dead end.
+        set_by = [sb for sb in (getattr(prereq, "set_by", []) or [])
+                  if self._authority_npc_for([sb])]
+        if not set_by:
+            return None
         self._world_var_specs[var_id] = {
             "var_id": var_id,
             "label": (getattr(prereq, "label", "") or var_id),
-            "set_by": list(getattr(prereq, "set_by", []) or []),
+            "set_by": set_by,
             "request_keywords": list(getattr(prereq, "request_keywords", []) or []),
             "mutable": True,
             "initial": False,
@@ -1611,8 +1618,9 @@ class GameSession:
         new_var = self._register_dynamic_prerequisite(raw_prereq)
         if raw_prereq is not None and new_var is None:
             _clog.info("[t%s]   new_prerequisite proposed but NOT registered "
-                       "(dup/cap/bad-id): %r", self.world.state.tick,
-                       getattr(raw_prereq, "var_id", None))
+                       "(dup/cap/bad-id/no-existing-set_by-NPC): %r → set_by=%s",
+                       self.world.state.tick, getattr(raw_prereq, "var_id", None),
+                       getattr(raw_prereq, "set_by", None))
 
         flag_after = self.world.state.world_vars.get(var_id)
         if _clog.isEnabledFor(logging.INFO):

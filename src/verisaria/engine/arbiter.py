@@ -36,6 +36,9 @@ class ArbiterContext:
     # Pack-declared mutable world facts the arbiter may propose changing
     # (PLAY-3 Channel C, slice 1b), e.g. {"var_id", "label", "current", "set_by"}.
     mutable_world_vars: list[dict[str, Any]] = field(default_factory=list)
+    # The real NPC roster {id, authority, location}, so a new_prerequisite's set_by
+    # names an NPC that actually exists instead of an invented one.
+    npc_roster: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +129,16 @@ class LLMArbiter:
         raw_entries = getattr(world, 'world_book_entries', [])
         filtered = WorldBookFilter.filter_for_entity(raw_entries, actor)
 
+        roster = [
+            {
+                "id": eid,
+                "authority": (e.attributes or {}).get("authority", ""),
+                "location": e.location_id,
+            }
+            for eid, e in world.state.entities.items()
+            if e.entity_type == "npc"
+        ]
+
         return ArbiterContext(
             action=action,
             actor_attributes=actor.attributes if actor else {},
@@ -135,6 +148,7 @@ class LLMArbiter:
             recent_events=recent,
             world_book_entries=[e.content for e in filtered],
             mutable_world_vars=list(getattr(world, "mutable_world_vars", []) or []),
+            npc_roster=roster,
         )
 
     def _build_prompt(self, context: ArbiterContext) -> str:
@@ -216,6 +230,13 @@ class LLMArbiter:
                 prompt += line + "\n"
                 for fact in (v.get("established_facts") or []):
                     prompt += f"    · （先前已确立）{fact}\n"
+            prompt += "\n"
+
+        if context.npc_roster:
+            prompt += "## 世界中的 NPC（new_prerequisite 的 set_by 只能从这里选真实 id）\n\n"
+            for n in context.npc_roster:
+                role = f"（authority={n['authority']}）" if n.get("authority") else ""
+                prompt += f"- {n['id']}{role} @ {n.get('location', '')}\n"
             prompt += "\n"
 
         prompt += """## 示例：当你因"上面没有的新前置"而不批准时（务必声明 new_prerequisite）
