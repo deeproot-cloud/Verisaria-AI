@@ -1,0 +1,108 @@
+{
+  "content_pack_id": "escort_proving_ground",
+  "schema_version": "2.0",
+  "world_premise": {
+    "era": "边境小镇的清晨",
+    "tone": "温和、协作",
+    "central_tension": "镇口的水闸要不要为下游开——闸官想听一个亲历者当面把上游的事讲清楚。"
+  },
+  "style_guide": {
+    "narrative_voice": "平实、生活化",
+    "tone_references": ["温和、协作"],
+    "prohibited_tropes": []
+  },
+  "world_book": [
+    {
+      "entry_id": "upstream_blockage",
+      "layer": "canonical_fact",
+      "content": "上游的引水渠被一场塌方堵了大半，下游的磨坊和田地都在等闸房放水。",
+      "access": {"visible_to": {"faction": ["all"]}, "hidden_from": {}},
+      "confidence_policy": "fact"
+    },
+    {
+      "entry_id": "warden_is_fair",
+      "layer": "personal_truth",
+      "content": "闸官老康为人公道：只要有亲历者当面把上游的情形讲清楚，他就肯开闸放水，不为难人。",
+      "access": {"visible_to": {"faction": ["gate", "mill"]}, "hidden_from": {}},
+      "confidence_policy": "belief_not_fact"
+    },
+    {
+      "entry_id": "anya_wants_water",
+      "layer": "personal_truth",
+      "content": "磨坊主安雅亲眼见过上游那场塌方，她巴不得闸房早点放水——磨坊停了三天了。她很乐意去闸房当面讲清楚。",
+      "access": {"visible_to": {"faction": ["mill"]}, "hidden_from": {}},
+      "confidence_policy": "belief_not_fact"
+    }
+  ],
+  "starting_location": "gatehouse",
+  "initial_locations": [
+    {
+      "location_id": "gatehouse",
+      "name": "闸房",
+      "description": "镇口的石砌闸房，水闸的绞盘就在窗边。闸官老康守在这儿。门外一条小路通向院子。",
+      "connections": [
+        {"to": "yard", "distance": "adjacent", "noise_leak": 0.1, "visual_leak": 0.0, "description": "穿过侧门走到院子"}
+      ]
+    },
+    {
+      "location_id": "yard",
+      "name": "院子",
+      "description": "闸房外的小院，停着安雅那辆空磨车。她正烦躁地等着上游来水。",
+      "connections": [
+        {"to": "gatehouse", "distance": "adjacent", "noise_leak": 0.1, "visual_leak": 0.0, "description": "回到闸房"}
+      ]
+    }
+  ],
+  "initial_entities": [
+    {
+      "entity_id": "player_001",
+      "name": "你",
+      "entity_type": "player",
+      "location_id": "gatehouse",
+      "zone_id": "main",
+      "attributes": {"region": "rivertown"},
+      "traits": []
+    },
+    {
+      "entity_id": "npc.warden_kang",
+      "name": "闸官老康",
+      "entity_type": "npc",
+      "location_id": "gatehouse",
+      "zone_id": "main",
+      "attributes": {"perception": 0.6, "faction": "gate", "region": "rivertown", "authority": "sluice_authority"},
+      "traits": ["公道", "守规矩", "讲道理"]
+    },
+    {
+      "entity_id": "npc.miller_anya",
+      "name": "磨坊主安雅",
+      "entity_type": "npc",
+      "location_id": "yard",
+      "zone_id": "main",
+      "attributes": {"charisma": 0.6, "faction": "mill", "region": "rivertown"},
+      "traits": ["热心肠", "直率", "盼着开闸放水", "乐意帮忙"]
+    }
+  ],
+  "initial_relationships": [
+    {"npc_id": "npc.miller_anya", "target_id": "player_001", "type": "eager_ally", "dimensions": {"trust": 0.4, "familiarity": 0.2}},
+    {"npc_id": "npc.warden_kang", "target_id": "player_001", "type": "neutral", "dimensions": {"familiarity": 0.1}}
+  ],
+  "initial_conversations": [],
+  "world_state_vars": [
+    {
+      "var_id": "sluice_opened",
+      "label": "水闸是否开启放水",
+      "type": "bool",
+      "initial": false,
+      "mutable": true,
+      "public": true,
+      "set_by": ["sluice_authority"],
+      "request_keywords": ["开闸", "开水闸", "放水", "打开水闸", "把闸开了", "开闸放水"]
+    }
+  ],
+  "player_agenda_template": {
+    "drives": ["让闸房为下游开闸放水"],
+    "inference_mode": "reflection_only"
+  },
+  "constraints": {"max_entities_per_location": 10},
+  "rule_presets": {"difficulty": "easy"}
+}
