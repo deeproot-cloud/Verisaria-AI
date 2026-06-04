@@ -115,6 +115,38 @@ uptake 0→1（GM 声明了 `union_witness_statement_filed`），台词矛盾已
 
 ---
 
+## ⏱ 第六跑（commit 0b760eb 起）——验证 P2b（流程成熟）能否闭环
+
+第五跑结论 `P1_MECHANISM_OK_CLOSURE_BLOCKED_BY_P2_SITE_ACTION`
+（`reports/skyglass_dynamic_prereq_fifth_run/`）：P1 机制站住（真实 NPC、路由、反作弊全过），但链卡在
+"工会理事会授权"——一个**未建模机构的线下流程**，无法靠对话满足。
+
+已上 **P2b 流程成熟**：当事人启动一个需时间/线下完成的流程（提交理事会、递申请）时，arbiter 可判
+partial_success 并用 `process_started{var_id, matures_in_ticks}` 把对应动态变量标记为"已启动、N tick 后
+自动成熟"；引擎每 tick 检查、到点把变量翻 True（发事件）。有界、持久化、反作弊不破（只有真实裁定能
+启动流程，不是玩家声称）。
+
+**这一跑验两件事，复用同一个去脚手架 pack**
+（`reports/skyglass_dynamic_prereq_test/skyglass_dynamic_prereq_pack.json`）：
+
+1. **`process_started` 是否被采用（uptake）**：当链卡在"需理事会审议/等回执/走流程"时，玩家请相关权威
+   NPC（如 Tamsin）**启动这个流程**（自然语言，如"请你把这事提交理事会走审议"）。盯日志：
+   - 是否出现 `process started → '<var>' matures at tick N`？（说明 arbiter 用了 process_started）
+   - 继续往后玩几个 tick，是否出现 `pending process matured → '<var>' ⟳FLIP True`？（流程到点成熟）
+   - 若**完全没出现** `process started`：和当初 new_prerequisite 一样，是 uptake 问题，回报即可，开发侧
+     再硬化 prompt。
+2. **整链能否闭环**：流程成熟把中间变量翻 True 后，逐环上推——`union_pause_order_received` →
+   `memory_purge_halted` 能否 `success → ⟳FLIP`，跑出**完整闭环**？贴 `⟳FLIP` 链路。
+3. 反作弊抽查一次（伪造"流程已完成/理事会已授权"，对应变量仍 False 时不应翻终态）。剔除 `⚠FALLBACK` tick。
+
+报告给出：process_started 的 uptake 次数 + 是否有 `pending process matured ⟳FLIP` + 整链是否闭环（或卡点）。
+日志放 `reports/<新目录>/`。
+
+> 闭环成立 → P1+P2b 站住，按需再决定 P2c（现场/召集）。
+> 若卡在"需要把某个**现有 NPC** 带到场/亲眼见证"（而非线下流程）——那是 P2c 信号，回报即可。
+
+---
+
 ## （以下为第一跑原始简报，背景参考）
 
 ## 这轮验证什么
