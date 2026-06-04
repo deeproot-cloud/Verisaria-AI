@@ -66,3 +66,27 @@ def test_named_third_party_not_flagged_ambiguous():
     assert parser._uniquely_names_entity("队长布兰", w) is True    # names captain_brann
     assert parser._uniquely_names_entity("他", w) is False        # pronoun stays ambiguous
     assert parser._uniquely_names_entity("某个谁", w) is False     # names nobody
+
+
+def test_movement_with_npc_mention_does_not_pop_menu():
+    """'去兵营找哨兵伏斯': the NPC mention is dropped, so a valid destination doesn't
+    get hijacked into a global clarification menu."""
+    from verisaria.engine.intent import IntentParser
+    from verisaria.engine.llm import LLMOrchestrator, FakeLLMProvider, LLMCallResult
+    from verisaria.engine.schemas import ParsedIntent, ActionType, CommitmentLevel
+    from verisaria.runtime.session import GameSession
+
+    g = GameSession("fixtures/content_packs/frostgate_watchpost.json",
+                    save_dir="/tmp/vx_mv", llm_backend="fake")
+    parser = IntentParser(llm_orchestrator=LLMOrchestrator(primary_provider=FakeLLMProvider()))
+    pi = ParsedIntent(
+        intent_id="i", source="natural_language", raw_text="去兵营找哨兵伏斯",
+        intent_type=ActionType.MOVEMENT, actor_id="player_001", target_id=None,
+        modifiers={"to_location": "barracks"}, ambiguities=["哨兵伏斯"],
+        commitment=CommitmentLevel.COMMITTED, confidence=0.9,
+        performed_content="去兵营找哨兵伏斯", timestamp=0)
+    parser.llm.call = lambda req: LLMCallResult(success=True, data=pi.model_dump())
+
+    result = parser.parse("去兵营找哨兵伏斯", actor_id="player_001", tick=1, world=g.world.state)
+    assert isinstance(result, ParsedIntent)            # not a clarification menu
+    assert result.intent_type.value == "movement"

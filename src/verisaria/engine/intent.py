@@ -315,6 +315,16 @@ class IntentParser:
                 if a.lower() not in ref_lower and ref_lower not in a.lower()
             ]
 
+        # A clearly-named entity flagged as an "ambiguity" isn't actually ambiguous —
+        # e.g. "去栈桥找莉拉" (the NPC mention shouldn't pop a destination menu) or
+        # "对莉拉说…当着梅档案官的面…" (the third party shouldn't hijack the turn).
+        # Drop ambiguities that uniquely name a known entity; pronouns/deictics stay.
+        if intent.ambiguities and world is not None:
+            intent.ambiguities = [
+                a for a in intent.ambiguities
+                if not self._uniquely_names_entity(a, world)
+            ]
+
         # P1.5: a movement that is still uncertain — either its destination can't
         # be resolved to a real location (the LLM invented "市场"), or a leftover
         # ambiguity remains (the LLM substituted a valid id but flagged the named
@@ -340,16 +350,6 @@ class IntentParser:
         # so we execute directly instead of asking a needless question.
         if not skip_ambiguity_check:
             intent = self._auto_resolve_single_candidate(intent, world, active_conversation)
-
-        # A clearly-named third party mentioned inside speech ("当着梅档案官的面…") is
-        # NOT ambiguous — once the addressee is resolved, drop ambiguities that
-        # uniquely name a known entity so they don't hijack the turn (the escort
-        # friction). Pronouns/deictics stay ambiguous.
-        if intent.ambiguities and intent.target_id and world is not None:
-            intent.ambiguities = [
-                a for a in intent.ambiguities
-                if not self._uniquely_names_entity(a, world)
-            ]
 
         # Check for ambiguities in the parsed intent
         if intent.ambiguities and not skip_ambiguity_check:
