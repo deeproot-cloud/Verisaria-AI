@@ -127,3 +127,20 @@ def test_substantive_turn_emits_no_notice(tmp_path):
     seen: list = []
     es.submit_streaming(P.SubmitInput("我去难民营"), on_event=seen.append)
     assert not any(isinstance(e, P.Notice) for e in seen)
+
+
+def test_snapshot_surfaces_dynamic_var_and_pending_process(tmp_path):
+    """The world snapshot distinguishes a GM-spawned dynamic var and exposes a
+    maturing offscreen process (pending_in), so the TUI can show ⏳."""
+    from verisaria.engine.schemas import NewPrerequisite, ProcessStarted
+    es = _es(tmp_path)
+    g = es.game
+    g._register_dynamic_prerequisite(NewPrerequisite(var_id="council_ok", set_by=["npc.captain_brann"]))
+    g.world.state.tick = 5
+    g._begin_pending_process(ProcessStarted(var_id="council_ok", matures_in_ticks=3))  # due 8
+
+    wv = {w.var_id: w for w in es.snapshot().world_vars}
+    assert wv["council_ok"].dynamic is True
+    assert wv["council_ok"].pending_in == 3            # 8 - 5
+    assert wv["refugees_admitted"].dynamic is False    # pack var
+    assert wv["refugees_admitted"].pending_in is None

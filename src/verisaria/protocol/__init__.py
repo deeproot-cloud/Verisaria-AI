@@ -282,6 +282,8 @@ class WorldVarView:
     var_id: str
     label: str
     value: Any
+    dynamic: bool = False         # GM-spawned (emergent) prerequisite, not pack-declared
+    pending_in: int | None = None  # an offscreen process is maturing; ticks until it lands
 
 
 @dataclass(frozen=True)

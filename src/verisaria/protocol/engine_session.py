@@ -191,13 +191,15 @@ class EngineSession:
                     descriptors=descriptors,
                 ))
 
-        world_vars = [
-            protocol.WorldVarView(
-                var_id=vid, label=spec.get("label", vid),
-                value=state.world_vars.get(vid, spec.get("initial")),
-            )
-            for vid, spec in g._world_var_specs.items()
-        ]
+        world_vars = []
+        for vid, spec in g._world_var_specs.items():
+            value = state.world_vars.get(vid, spec.get("initial"))
+            pu = spec.get("pending_until")
+            pending_in = max(0, pu - state.tick) if (pu is not None and not value) else None
+            world_vars.append(protocol.WorldVarView(
+                var_id=vid, label=spec.get("label", vid), value=value,
+                dynamic=bool(spec.get("dynamic")), pending_in=pending_in,
+            ))
 
         agenda = g.agenda_service.get_agenda(current_tick=state.tick)
         agenda_view = protocol.AgendaView(

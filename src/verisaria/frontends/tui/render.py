@@ -181,15 +181,26 @@ def render_nearby(snapshot: P.WorldSnapshot) -> str:
     return "\n".join(rows) if rows else "[dim]此处无人。[/]"
 
 
+def _world_var_row(w: P.WorldVarView) -> str:
+    if getattr(w, "pending_in", None) is not None:   # an offscreen process is maturing
+        return f"{_esc(w.label)}  [{AMBER}]⏳ 办理中（≈{w.pending_in}）[/]"
+    mark = f"[{GREEN}]✓[/]" if w.value else f"[{RED}]✗[/]"
+    return f"{_esc(w.label)}  {mark}"
+
+
 def render_world(snapshot: P.WorldSnapshot) -> str:
-    """Right panel — mutable world facts (Channel C)."""
+    """Right panel — mutable world facts (Channel C). Pack-declared facts first;
+    GM-spawned (emergent) prerequisites grouped below; a maturing offscreen process
+    reads ⏳ rather than a bare ✗."""
     if not snapshot.world_vars:
         return "[dim]—[/]"
-    rows = []
-    for w in snapshot.world_vars:
-        mark = f"[{GREEN}]✓[/]" if w.value else f"[{RED}]✗[/]"
-        rows.append(f"{_esc(w.label)}  {mark}")
-    return "\n".join(rows)
+    core = [_world_var_row(w) for w in snapshot.world_vars if not getattr(w, "dynamic", False)]
+    dyn = [_world_var_row(w) for w in snapshot.world_vars if getattr(w, "dynamic", False)]
+    rows = list(core)
+    if dyn:
+        rows.append("[dim]· 涌现前置[/]")
+        rows.extend(dyn)
+    return "\n".join(rows) if rows else "[dim]—[/]"
 
 
 def render_godview(views: list[P.GodView]) -> str:

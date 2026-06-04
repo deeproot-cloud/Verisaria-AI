@@ -84,6 +84,24 @@ def test_render_world_marks_flags():
     assert "城门开启" in out and "✓" in out
 
 
+def test_render_world_shows_pending_process_and_groups_emergent():
+    snap = P.WorldSnapshot(
+        tick=4, pacing="normal", location=P.LocationView(id="x"),
+        world_vars=[
+            P.WorldVarView(var_id="sluice_opened", label="开闸", value=False),       # pack
+            P.WorldVarView(var_id="union_order", label="工会停洗指令", value=False,
+                           dynamic=True, pending_in=3),                              # maturing process
+            P.WorldVarView(var_id="cosign", label="联签", value=True, dynamic=True),  # emergent, done
+        ],
+    )
+    out = R.render_world(snap)
+    assert "涌现前置" in out                       # GM-spawned vars grouped
+    assert "工会停洗指令" in out and "⏳" in out and "3" in out   # maturing process reads ⏳, not ✗
+    assert "联签" in out and "✓" in out
+    # the pack var sits above the 涌现前置 divider
+    assert out.index("开闸") < out.index("涌现前置") < out.index("工会停洗指令")
+
+
 def test_summarize_event_plain_text():
     assert "你好" in R.summarize_event(P.PlayerSpoke(tick=1, line="你好"))
     s = R.summarize_event(P.NpcSpoke(tick=1, npc_id="npc.brann", name="brann", line="哼"))
