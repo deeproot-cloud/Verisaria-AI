@@ -43,6 +43,9 @@ class ArbiterContext:
     # WILLINGNESS to accompany (persona + stance), NOT a world-change with
     # prerequisites — reusing the world-change framing biased escort toward refusal.
     escort: dict[str, Any] | None = None
+    # The target NPC's persona traits — the author's primary "what they're like"
+    # signal. Without it the escort willingness judge only saw bare attributes.
+    target_traits: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +151,7 @@ class LLMArbiter:
             action=action,
             actor_attributes=actor.attributes if actor else {},
             target_attributes=target.attributes if target else None,
+            target_traits=list(getattr(target, "traits", []) or []) if target else [],
             location_id=actor.location_id if actor else "unknown",
             zone_id=actor.zone_id if actor else None,
             recent_events=recent,
@@ -303,8 +307,9 @@ class LLMArbiter:
 - 目的地：{esc.get('dest', '')}
 - 当事人原话：{content}
 
-## 该 NPC 的人设/属性
-{context.target_attributes or {}}
+## 该 NPC 的人设
+- 性格/特质：{("、".join(context.target_traits) if context.target_traits else "（未注明）")}
+- 属性：{context.target_attributes or {}}
 
 ## 该 NPC 对当事人的态度（关系维度，0–1）
 {rel_str}

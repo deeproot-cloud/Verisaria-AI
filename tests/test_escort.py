@@ -85,12 +85,14 @@ def test_escort_uses_willingness_prompt_not_world_change():
     action = Action(action_id="a", actor_id="player_001", action_type=ActionType.SPEECH,
                     target_id="npc.x", tick=1, params={"content": "跟我去兵营"})
     ctx = ArbiterContext(
-        action=action, actor_attributes={}, target_attributes={"trait": "loyal"},
+        action=action, actor_attributes={}, target_attributes={"charisma": 0.6},
+        target_traits=["热心肠", "乐意帮忙"],
         location_id="x", zone_id=None, recent_events=[], world_book_entries=[],
         escort={"npc_name": "哨兵伏斯", "dest": "兵营", "relationship": {"trust": 0.4}})
     prompt = arb._build_prompt(ctx)
     assert "陪同当事人前往" in prompt and "社交意愿" in prompt
     assert "哨兵伏斯" in prompt and "兵营" in prompt and "trust 0.40" in prompt
+    assert "热心肠" in prompt and "乐意帮忙" in prompt   # persona traits reach the judge
     assert "new_prerequisite" not in prompt and "process_started" not in prompt
     assert "可改变的世界状态" not in prompt          # no world-var prerequisite section
 
