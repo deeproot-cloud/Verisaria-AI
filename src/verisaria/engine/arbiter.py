@@ -92,7 +92,7 @@ class LLMArbiter:
 
         if not result.success:
             # Fallback: deterministic outcome based on action type
-            return self._fallback_outcome(arbiter_id, action)
+            return self._fallback_outcome(arbiter_id, action, result)
 
         arbiter_output = ArbiterOutput.model_validate(result.data)
 
@@ -380,23 +380,35 @@ class LLMArbiter:
             "npc": npc_ctx,
         }
 
-    def _fallback_outcome(self, arbiter_id: str, action: Action) -> ValidatedOutcome:
-        """Deterministic fallback when LLM fails."""
+    def _fallback_outcome(self, arbiter_id: str, action: Action,
+                          result: Any = None) -> ValidatedOutcome:
+        """Deterministic fallback when the LLM call fails. The ``cause`` reflects the
+        REAL reason — a schema/JSON rejection of the (large) ArbiterOutput is not the
+        same as the API being down, and logging it as 'LLM 不可用' was misleading."""
         from verisaria.engine.schemas import StateChange
+        from verisaria.engine.llm import LLMErrorCategory
+
+        cat = getattr(result, "error_category", None)
+        if cat in (LLMErrorCategory.PARSE, LLMErrorCategory.VALIDATION):
+            cause = "仲裁输出格式非法（重试后仍未通过 JSON/schema 校验）"
+        elif cat == LLMErrorCategory.BUDGET:
+            cause = "本 tick 仲裁预算已用尽"
+        else:
+            cause = "LLM 不可用"
 
         # Default outcomes by action type
         if action.action_type.value == "social":
             outcome = "partial_success"
-            reason = "LLM 不可用，按默认规则：社交行动结果不确定。"
+            reason = f"{cause}，按默认规则：社交行动结果不确定。"
         elif action.action_type.value == "physical":
             outcome = "failure"
-            reason = "LLM 不可用，按默认规则：需要技巧的行动失败。"
+            reason = f"{cause}，按默认规则：需要技巧的行动失败。"
         elif action.action_type.value == "combat":
             outcome = "failure"
-            reason = "LLM 不可用，按默认规则：战斗未命中。"
+            reason = f"{cause}，按默认规则：战斗未命中。"
         else:
             outcome = "failure"
-            reason = "LLM 不可用，按默认规则处理。"
+            reason = f"{cause}，按默认规则处理。"
 
         arbiter_output = ArbiterOutput(
             arbiter_id=arbiter_id,

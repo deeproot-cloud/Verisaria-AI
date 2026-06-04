@@ -59,9 +59,12 @@ class TestRetryPolicy:
         policy = RetryPolicy()
         assert policy.should_retry(LLMErrorCategory.CONNECTION, attempt=0)
 
-    def test_should_not_retry_validation(self):
+    def test_should_retry_validation(self):
+        # VALIDATION is retryable: a nondeterministic model occasionally emits an
+        # illegal field against a large schema (ArbiterOutput); a fresh sample passes.
         policy = RetryPolicy()
-        assert not policy.should_retry(LLMErrorCategory.VALIDATION, attempt=0)
+        assert policy.should_retry(LLMErrorCategory.VALIDATION, attempt=0)
+        assert not policy.should_retry(LLMErrorCategory.VALIDATION, attempt=2)  # capped
 
     def test_should_retry_parse(self):
         # PARSE is retryable: nondeterministic models intermittently emit malformed
@@ -118,7 +121,9 @@ class TestOrchestratorRetry:
         assert result.data == {"ok": True}
         assert primary.call.call_count == 3
 
-    def test_no_retry_on_validation_failure(self):
+    def test_retries_then_falls_back_on_validation_failure(self):
+        # VALIDATION is now retryable (a fresh sample often passes the schema); after
+        # exhausting retries it still falls back rather than failing the turn.
         primary = MagicMock()
         primary.call.return_value = LLMCallResult(
             success=False,
@@ -141,8 +146,8 @@ class TestOrchestratorRetry:
         result = orch.call(LLMCallRequest(task_type="test", prompt="x"))
         assert result.success
         assert result.data["from"] == "fallback"
-        # Primary called once (no retry), fallback called once
-        assert primary.call.call_count == 1
+        # Primary retried (1 + 2 retries), then fallback
+        assert primary.call.call_count == 3
 
     def test_exhaust_retries_then_fallback(self):
         primary = MagicMock()

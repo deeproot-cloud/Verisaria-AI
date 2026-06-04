@@ -1834,7 +1834,7 @@ class GameSession:
             verdict = outcome.arbiter_output.outcome
             fact = (outcome.arbiter_output.established_fact or "").strip()
             ledger_now = [f.text for f in self.fact_ledger.relevant(var_id)]
-            fb = "  ⚠FALLBACK(LLM不可用)" if outcome.arbiter_output.is_fallback else ""
+            fb = "  ⚠FALLBACK" if outcome.arbiter_output.is_fallback else ""  # cause is in reason=
             _clog.info(
                 "[t%s] world-change %s by %s → %s%s | flag %s→%s%s | reason=%r | ledger(%s)=%s",
                 self.world.state.tick, var_id, authority_npc, verdict, fb,

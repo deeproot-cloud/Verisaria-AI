@@ -120,3 +120,25 @@ class TestLLMArbiter:
         assert result.arbiter_output.outcome == "partial_success"  # social default
         assert "LLM 不可用" in result.arbiter_output.reason
         assert len(result.arbiter_output.state_changes_proposed) == 0
+
+
+def test_fallback_reason_reflects_validation_cause():
+    """A schema/JSON rejection of ArbiterOutput must NOT be logged as 'LLM 不可用'
+    (the API may be healthy); the fallback reason should name the real cause."""
+    from verisaria.engine.arbiter import LLMArbiter
+    from verisaria.engine.llm import LLMOrchestrator, FakeLLMProvider, LLMCallResult, LLMErrorCategory
+    from verisaria.engine.schemas import Action, ActionType
+
+    arb = LLMArbiter(llm_orchestrator=LLMOrchestrator(primary_provider=FakeLLMProvider()))
+    action = Action(action_id="a", actor_id="player_001", action_type=ActionType.SOCIAL,
+                    tick=1, params={"verb": "persuade"})
+    bad = LLMCallResult(success=False, error="Schema validation failed",
+                        error_category=LLMErrorCategory.VALIDATION)
+    out = arb._fallback_outcome("arb_x", action, bad)
+    assert out.arbiter_output.is_fallback is True
+    assert "schema" in out.arbiter_output.reason and "LLM 不可用" not in out.arbiter_output.reason
+
+    # a genuine connection failure DOES say LLM unavailable
+    down = LLMCallResult(success=False, error="conn", error_category=LLMErrorCategory.CONNECTION)
+    out2 = arb._fallback_outcome("arb_y", action, down)
+    assert "LLM 不可用" in out2.arbiter_output.reason

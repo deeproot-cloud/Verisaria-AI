@@ -77,14 +77,16 @@ class RetryPolicy:
     max_retries: int = 2
     base_delay: float = 1.0
     max_delay: float = 10.0
-    # Categories that warrant a retry (transient errors). PARSE is included
-    # because nondeterministic models (notably MiniMax on long Chinese input)
-    # intermittently emit malformed JSON — a fresh sample usually parses, which
-    # is far better than failing the whole turn ("我没理解").
+    # Categories that warrant a retry (transient errors). PARSE and VALIDATION are
+    # included because nondeterministic models (notably MiniMax on a large schema
+    # like ArbiterOutput) intermittently emit malformed JSON or an illegal field —
+    # a fresh sample usually passes, which beats failing the turn into a fallback
+    # (and the misleading "LLM 不可用" that schema rejection used to log as).
     retryable: set[str] = field(default_factory=lambda: {
         LLMErrorCategory.TIMEOUT.value,
         LLMErrorCategory.CONNECTION.value,
         LLMErrorCategory.PARSE.value,
+        LLMErrorCategory.VALIDATION.value,
     })
 
     def should_retry(self, category: LLMErrorCategory | None, attempt: int) -> bool:
