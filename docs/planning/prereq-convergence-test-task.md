@@ -108,3 +108,28 @@ mae↔oro 循环死锁=决策 A；proving trust 0.05 过低 + 闸官升级到未
 
 > 这是验证夹具、有意做成可闭环——目的是**证明引擎能干净跑出端到端闭环**。skyglass 的循环死锁是另一类（决策 A，
 > 不在本轮）。若 proving 这条都跑通，动态世界模型 + 路由 + (a)+(b) 这条线就盖章了。
+
+---
+
+## ⏱ 第四跑（commit e3001e6 起）——终态收口，盯 sluice_opened ⟳FLIP
+
+第三跑（A→G 逼近）：**引擎已跑到 `escort ⟳MOVED → 中间前置 ⟳FLIP → anya_testimony_given ⟳FLIP` 三环端到端**
+（②证人作证翻 var 成立、路由全通、反作弊过）。**唯一没盖的是终态 `sluice_opened`**——闸官在
+`anya_testimony_given=True` 后**又派生新前置**（第三方背书/上级备案），**自相矛盾于他自己的人设**（"亲历者当面
+作证就开闸"）。根因诊断：world-change 仲裁**根本看不到闸官的人设/立场**（只喂了 attributes，world_book 从未
+注入仲裁），所以无从honor他自己说过的放行条件。
+
+已修（commit e3001e6）：
+- 把 pack 的 world_book 注入仲裁、按目标实体过滤；world-change prompt 现在渲染**「目标的人设与立场」**
+  （闸官的 traits + 他自己 world_book 里的"只要亲历者当面作证就开闸"）。
+- 收敛规则 **(c)**：若权威自己立场已明示放行条件、且条件已满足（前置 var 已 True），**必须判 success**，
+  不许再加他立场里没有的新前置（那是出尔反尔）。
+
+**这一跑就盯一件事：proving 能否跑出完整端到端 `证人 ⟳FLIP → sluice_opened ⟳FLIP`。** 关注点：
+1. 闸官在 `anya_testimony_given=True` 后，是否**据自己"亲历者作证就开闸"的人设**判 `sluice_opened` success →
+   `⟳FLIP`，而不再加第三方背书/上级备案？
+2. 终态 voiced 台词与 verdict 是否一致（之前出现过"台词说开了、flag 不翻"）。
+3. 反作弊照旧。剔 fallback。
+
+> 离线已验：闸官的人设 + "亲历者作证就开闸"条件 + `anya_testimony_given=True` + (c) 规则**都已进 prompt**。
+> 若这条干净链终态终于翻了，动态世界模型这条线就彻底盖章。
