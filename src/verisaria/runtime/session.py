@@ -828,8 +828,10 @@ class GameSession:
         # change them, and that authority's stance toward the player) so it can
         # legitimately propose `world.<var>` changes (PLAY-3 Channel C).
         self.world.mutable_world_vars = self._world_vars_for_arbiter()
-
-        outcome = self.arbiter.arbitrate(action, self.world)
+        try:
+            outcome = self.arbiter.arbitrate(action, self.world)
+        finally:
+            self.world.mutable_world_vars = None
 
         # Map action type to event type
         event_type_map = {
@@ -867,6 +869,20 @@ class GameSession:
             source_action_id=action.action_id,
         )
         self.world.event_log.append(event)
+
+        # Anti-cheese: a world fact may flip ONLY on a genuine "success". Drop any
+        # `world.*` change the arbiter proposed on a non-success verdict — the
+        # generic arbiter path needs the same gate _handle_world_change_request has,
+        # or a failed/partial action could still flip a terminal flag.
+        if outcome.arbiter_output.outcome != "success":
+            world_changes = [c for c in outcome.accepted_state_changes
+                             if c.field.startswith("world.")]
+            if world_changes:
+                outcome.accepted_state_changes = [
+                    c for c in outcome.accepted_state_changes
+                    if not c.field.startswith("world.")]
+                outcome.rejected_state_changes = (
+                    list(outcome.rejected_state_changes) + world_changes)
 
         # Apply accepted state changes
         self._apply_state_changes(outcome)
@@ -1761,7 +1777,10 @@ class GameSession:
         self._streamed_npc = None
         flag_before = self.world.state.world_vars.get(var_id)
         self.world.mutable_world_vars = self._world_vars_for_arbiter()
-        outcome = self.arbiter.arbitrate(action, self.world)
+        try:
+            outcome = self.arbiter.arbitrate(action, self.world)
+        finally:
+            self.world.mutable_world_vars = None
 
         # The arbiter LLM proposes its verdict label and its state changes
         # independently, and can disagree with itself — labelling a verdict
@@ -2282,9 +2301,15 @@ class GameSession:
                     # rebuilds the pack-declared ones.
                     for spec in npc["dynamic_world_vars"]:
                         vid = spec.get("var_id")
-                        if vid and vid not in self._world_var_specs:
+                        if not vid:
+                            continue
+                        if vid not in self._world_var_specs:
                             self._world_var_specs[vid] = spec
                             self.world.state.world_vars.setdefault(vid, spec.get("initial", False))
+                        elif spec.get("pending_until") is not None:
+                            # The var has since been baked into the pack — keep its
+                            # in-flight process maturation, which the pack spec lacks.
+                            self._world_var_specs[vid]["pending_until"] = spec["pending_until"]
 
                 return f"Loaded: {arg} (tick {self.world.state.tick})"
             except FileNotFoundError:

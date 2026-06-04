@@ -238,23 +238,31 @@ class CampaignLoader:
         """Construct an initial WorldState from a validated ContentPack."""
         state = WorldState(tick=0)
 
-        # Build locations from entity locations AND every declared location — an
+        # Build locations from every declared location AND entity locations — an
         # empty room (no one currently standing in it) is still a reachable /
         # escortable destination and belongs on the map. (Previously only entity
         # locations were built, silently dropping declared-but-empty rooms.)
-        location_ids = set()
+        # Build the id list in a DETERMINISTIC order (declared order first, then any
+        # entity-only locations) — a set iterates in hash order, which made the
+        # locations dict order, and thus destination tie-breaking, non-deterministic.
+        location_ids: list[str] = []
+        seen_locs: set[str] = set()
+
+        def _add_loc(lid: str | None) -> None:
+            if lid and lid not in seen_locs:
+                seen_locs.add(lid)
+                location_ids.append(lid)
+
         zone_data: dict[str, dict[str, Any]] = {}
         for ent in pack.initial_entities:
             loc = ent.get("location_id")
             zone = ent.get("zone_id")
-            if loc:
-                location_ids.add(loc)
             if loc and zone:
                 zone_data.setdefault(loc, {})[zone] = ent.get("zone_info", {})
         for loc_def in pack.initial_locations:
-            lid = loc_def.get("location_id")
-            if lid:
-                location_ids.add(lid)
+            _add_loc(loc_def.get("location_id"))
+        for ent in pack.initial_entities:
+            _add_loc(ent.get("location_id"))
 
         for loc_id in location_ids:
             zones = {}

@@ -71,6 +71,27 @@ def test_named_third_party_not_flagged_ambiguous():
     assert parser._uniquely_names_entity("barracks", w) is True    # location id
 
 
+def test_resolve_target_ref_matches_display_name():
+    """A display-name address the LLM left unresolved ('队长布兰') must resolve to the
+    NPC — else the ambiguity filter would drop it into a targetless action."""
+    from verisaria.engine.intent import IntentParser
+    from verisaria.engine.llm import LLMOrchestrator, FakeLLMProvider
+    from verisaria.engine.schemas import ParsedIntent, ActionType, CommitmentLevel
+    from verisaria.runtime.session import GameSession
+
+    g = GameSession("fixtures/content_packs/frostgate_watchpost.json",
+                    save_dir="/tmp/vx_ref", llm_backend="fake")
+    parser = IntentParser(llm_orchestrator=LLMOrchestrator(primary_provider=FakeLLMProvider()))
+    intent = ParsedIntent(
+        intent_id="i", source="natural_language", raw_text="对队长布兰说：你好",
+        intent_type=ActionType.SPEECH, actor_id="player_001", target_id=None,
+        target_ref="队长布兰", content="你好",
+        commitment=CommitmentLevel.COMMITTED, confidence=0.9,
+        performed_content="x", timestamp=0)
+    out = parser._resolve_target_ref(intent, g.world.state)
+    assert out.target_id == "npc.captain_brann"
+
+
 def test_movement_with_npc_mention_does_not_pop_menu():
     """'去兵营找哨兵伏斯': the NPC mention is dropped, so a valid destination doesn't
     get hijacked into a global clarification menu."""

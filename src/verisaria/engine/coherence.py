@@ -272,7 +272,8 @@ class CoherenceChecker:
 
     @staticmethod
     def _reachable(world: WorldState, start: str, goal: str) -> bool:
-        """Whether ``goal`` is reachable from ``start`` over location connections (BFS)."""
+        """Whether ``goal`` is reachable from ``start`` over location connections
+        (graph traversal; any-path reachability, not shortest)."""
         seen = {start}
         frontier = [start]
         while frontier:

@@ -125,6 +125,29 @@ def test_authority_reply_directive_grounds_npc_against_fabrication(tmp_path):
     assert "尚未成立" in d                        # refugees_admitted is currently False
 
 
+def test_generic_arbiter_path_gates_world_change_on_success(tmp_path):
+    """Anti-cheese: the GENERIC arbiter path (_handle_arbiter_action) must drop a
+    world.* change on a non-success verdict, like _handle_world_change_request —
+    otherwise a failed/partial action could flip a terminal flag."""
+    from verisaria.engine.schemas import Action, ActionType, StateChange
+
+    def _run(outcome: str):
+        g = GameSession(PACK, save_dir=str(tmp_path), llm_backend="fake")
+        sc = StateChange(field=f"world.{VAR}", delta=True, reason="x")
+        ao = ArbiterOutput(arbiter_id="t", source_action_id="a", outcome=outcome,
+                           reason="r", confidence=0.5)
+        g.arbiter.arbitrate = lambda action, world: ValidatedOutcome(
+            accepted=True, arbiter_output=ao, accepted_state_changes=[sc], rejected_state_changes=[])
+        action = Action(action_id="a", actor_id="player_001", action_type=ActionType.SOCIAL,
+                        target_id=AUTH, tick=1, params={"verb": "persuade", "content": "x"})
+        g._handle_arbiter_action(action)
+        return g.world.state.world_vars.get(VAR)
+
+    assert _run("failure") is False           # non-success → flag NOT flipped
+    assert _run("partial_success") is False   # partial → still not flipped
+    assert _run("success") is True            # success → applied
+
+
 def test_set_by_matches_npc_id_or_authority_role(tmp_path):
     """A world var's set_by may name an NPC by id OR by its authority role, and the
     id is matched tolerant of a missing npc. prefix (the GM sometimes drops it)."""

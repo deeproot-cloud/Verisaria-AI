@@ -87,6 +87,24 @@ def test_process_start_reply_is_announced_to_player(tmp_path):
     assert "你已经去办了" in (captured["d"] or "")
 
 
+def test_pending_process_merges_into_later_pack_var(tmp_path):
+    """If a dynamic var with a pending process is later baked into the pack, loading
+    an older save must keep its pending_until (the pack spec lacks it) so the process
+    still matures — not silently drop it."""
+    g = _session(tmp_path)
+    _dyn(g, "baked_v")
+    g.world.state.tick = 1
+    g._begin_pending_process(ProcessStarted(var_id="baked_v", matures_in_ticks=4))  # due 5
+    save_id = g._handle_command("/save").replace("Saved: ", "").strip()
+
+    g2 = _session(tmp_path)
+    # simulate the author having since declared baked_v in the pack
+    g2.pack.world_state_vars = list(getattr(g2.pack, "world_state_vars", []) or []) + [
+        {"var_id": "baked_v", "label": "已固化", "initial": False, "mutable": True}]
+    g2._handle_command(f"/load {save_id}")
+    assert g2._world_var_specs["baked_v"].get("pending_until") == 5   # merged, not lost
+
+
 def test_pending_process_survives_save_load(tmp_path):
     g = _session(tmp_path)
     _dyn(g, "proc_v")

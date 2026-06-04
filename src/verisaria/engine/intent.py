@@ -420,6 +420,22 @@ class IntentParser:
                 intent.target_id = eid
                 return intent
 
+        # Exact match on the entity's DISPLAY name (e.g. "奥罗医师" → npc.clinician_oro).
+        # Without this a display-name address the LLM left unresolved stays targetless,
+        # and the uniquely-names-entity ambiguity filter would then silently drop it.
+        for eid, e in world.entities.items():
+            name = (getattr(e, "name", "") or "").lower()
+            if name and name == ref:
+                intent.target_id = eid
+                return intent
+
+        # Substring match on the display name
+        for eid, e in world.entities.items():
+            name = (getattr(e, "name", "") or "").lower()
+            if name and (ref in name or name in ref):
+                intent.target_id = eid
+                return intent
+
         # Substring match
         for eid in world.entities:
             bare = eid.lower().replace("npc.", "")
