@@ -180,6 +180,7 @@ class NpcMoved(Event):              # only when player-perceivable (A5)
     npc_id: str
     from_loc: str
     to_loc: str
+    name: str = ""                  # display name (falls back to id-stripped at render)
 
 
 @dataclass(frozen=True)

@@ -21,6 +21,16 @@ def test_pressure_red_world_change_green():
     assert "✗" in off
 
 
+def test_npc_moved_uses_display_name():
+    # escort: the event carries a display name → render it, not the raw id
+    named = R.render_event(P.NpcMoved(tick=2, npc_id="npc.miller_anya", name="安雅",
+                                      from_loc="磨坊", to_loc="闸房"))
+    assert "安雅 → 闸房" in named and "miller_anya" not in named
+    # no name → fall back to the id with the npc. prefix stripped
+    bare = R.render_event(P.NpcMoved(tick=2, npc_id="npc.sentry_voss", from_loc="a", to_loc="b"))
+    assert "sentry_voss → b" in bare
+
+
 def test_control_events_not_logged():
     assert R.render_event(P.TickAdvanced(tick=9, new_tick=9)) is None
     assert R.render_event(P.SpeechToken(tick=9, npc_id="x", token="a")) is None

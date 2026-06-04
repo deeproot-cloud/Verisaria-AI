@@ -40,7 +40,8 @@ def render_event(ev: P.Event) -> str | None:
     if isinstance(ev, P.PlayerMoved):
         return f"{tick}[dim]你 → {_esc(ev.to_loc)}[/]"
     if isinstance(ev, P.NpcMoved):
-        return f"{tick}[dim]{_esc(ev.npc_id.replace('npc.', ''))} → {_esc(ev.to_loc)}[/]"
+        who = ev.name or ev.npc_id.replace("npc.", "")
+        return f"{tick}[dim]{_esc(who)} → {_esc(ev.to_loc)}[/]"
     if isinstance(ev, P.PressureEvent):
         return f"{tick}[{RED}](压力) {_esc(ev.summary)}[/]"
     if isinstance(ev, P.WorldVarChanged):

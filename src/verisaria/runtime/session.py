@@ -1755,7 +1755,7 @@ class GameSession:
             player.location_id = dest_id
             moved = True
             self._emit(protocol.NpcMoved(
-                tick=self.world.state.tick, npc_id=npc_id,
+                tick=self.world.state.tick, npc_id=npc_id, name=name,
                 from_loc=self.world.state.location_label(from_loc), to_loc=dest_label))
             self._emit(protocol.PlayerMoved(
                 tick=self.world.state.tick,
