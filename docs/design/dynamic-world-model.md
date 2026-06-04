@@ -74,7 +74,21 @@ LLM 很自然会要"带我去塔基""我得亲眼看白舱"。给玩家可执行
      N tick 后自动成熟"；引擎每 tick 检查、到点把变量翻 True（发 WorldVarChanged）。
      有界（≤`_MAX_PROCESS_TICKS`）、持久化（pending_until 随动态 spec 存档）、反作弊不破（只有真实
      裁定能启动流程，不是玩家声称）。
-   - **P2c 现场/召集**（下一步）：summon/escort 把现有 NPC 带到场，满足"亲眼/到场/见证"前置。
+   - **P2c 现场/召集**（自由试玩确认信号，`reports/freeplay_validation_first_run/`）：把现有 NPC 带到场，
+     满足"亲眼/到场/见证"前置。最干净落点 = 护送证人 worker_lira → archive_stack，当着 archivist_mae
+     面前口述证词（满足 `lira_witness_statement_recorded`）。
+     - **机制 = 护送请求，与世界变更同构**：玩家"对 X 说：跟我去 Y / 一起去 Y / 跟我来"——引擎检测
+       到护送请求（对在场 NPC 说 + 护送关键词 + 可解析目的地 Y，或"来/过来"=召到玩家当前位置），交
+       arbiter 裁定 X 是否愿意随行（同世界变更，按关系/人设/说服力）；success → X（与玩家）移动到 Y，
+       发 NpcMoved/PlayerMoved + 角色化台词；非 success → 角色化拒绝。到场后"当面见证"仍走既有
+       Channel-C（可由 P1 动态创建"已见证"变量）。
+     - **避开第三方歧义**：让玩家**直接对被护送的 NPC 说话**（"对莉拉说：跟我去档案署作证"），
+       addressee=被护送者、目的地=地点，无第三方人名，绕开下面友 friction 2。
+   - **两处解析摩擦（P2c 前置，自由试玩暴露）**，escort 话术天然会踩：
+     1. "去找<NPC>" / "去<地点>找<NPC>" 移动解析时灵时不灵（NPC id 泄成 location → unknown location，
+        或菜单回退）；纯"去<地点名>"始终可靠。
+     2. 对白里第三方人名/地名被误当动作对象（"对梅说我可以把**莉拉**带过来"→"'莉拉'指代不明"）——
+        已命名的真实 NPC 不该判为 ambiguity。
 
 > 注：第五跑的"理事会"是个**未建模机构**。本设计用 P2b 把它抽象成"启动→成熟"的流程，避免为每个
 > 机构造 NPC；真正需要"把某个现有 NPC 带到场"才用 P2c。动态创建实体仍不在范围内。
