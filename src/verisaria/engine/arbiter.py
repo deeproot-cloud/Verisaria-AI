@@ -212,6 +212,11 @@ class LLMArbiter:
                 "编造一个不存在的人，否则当事人无人可找；\n"
                 "  · request_keywords 多给几个【当事人会自然说出口】的短语，便于路由。\n"
                 "  · 每出现一个这样的新前置就声明一个（除非它其实等同于上面已列出的某个变量）。\n"
+                "**另一种情况**：如果当事人请求的是【启动一个本身需要时间/线下完成的流程】——例如"
+                "提交理事会审议、递交申请等回执、联系某机构走程序——而这个流程一旦启动就会自然走完，"
+                "你不应要求当事人立刻拿出尚不存在的结果，而应判 partial_success 并在 `process_started` "
+                "里把对应的动态变量标记为'已启动、N 个 tick 后自动完成'（var_id 用那个动态变量，"
+                "matures_in_ticks 给一个合理的小数字）。这样流程会随时间成熟、当事人无需空等到死。\n"
             )
             for v in context.mutable_world_vars:
                 var_id = v.get("var_id", "")
@@ -264,7 +269,8 @@ class LLMArbiter:
   "confidence": 0.0-1.0,
   "narration_hint": "给叙事者的提示（50字以内）",
   "established_fact": "仅当 outcome 为 partial_success：用一句客观陈述写下此刻已确立的中间事实或条件（供日后裁定复用），如「他愿意交出报告，前提是匿名」。务必写成【可满足、可闭环】的条件，写清楚对方还具体需要什么，避免「稍后审议」「改天再说」这类无法被后续满足的表述；其它情况留空字符串",
-  "new_prerequisite": null 或 {"var_id": "snake_case_ascii_id", "label": "中文标签", "set_by": ["能满足它的NPC的id或authority角色"], "request_keywords": ["玩家可能用来达成它的说法"]}（仅当你引入了上面变量里还没有的新前置时才填，否则 null）
+  "new_prerequisite": null 或 {"var_id": "snake_case_ascii_id", "label": "中文标签", "set_by": ["能满足它的NPC的id或authority角色"], "request_keywords": ["玩家可能用来达成它的说法"]}（仅当你引入了上面变量里还没有的新前置时才填，否则 null）,
+  "process_started": null 或 {"var_id": "已有的某个动态变量id", "matures_in_ticks": 2}（仅当当事人启动了一个需时间/线下完成的流程时才填，否则 null）
 }
 """
         return prompt

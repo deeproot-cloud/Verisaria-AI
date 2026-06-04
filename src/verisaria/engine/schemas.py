@@ -383,6 +383,16 @@ class NewPrerequisite(BaseModel):
     request_keywords: list[str] = Field(default_factory=list)  # how a request routes to it
 
 
+class ProcessStarted(BaseModel):
+    """The verdict initiated an offscreen process (a council review, an application,
+    a waiting period) that completes on its own after some ticks — the named dynamic
+    var should MATURE to True then, instead of the NPC demanding an impossible
+    immediate result. Anti-cheese intact: only a real adjudicated request starts it.
+    See docs/design/dynamic-world-model.md (P2)."""
+    var_id: str
+    matures_in_ticks: int = 2
+
+
 class ArbiterOutput(BaseModel):
     arbiter_id: str
     source_action_id: str
@@ -404,6 +414,10 @@ class ArbiterOutput(BaseModel):
     # represents — the engine registers it so the player can actually satisfy it
     # (rather than the demand being a dead end). See dynamic-world-model.md.
     new_prerequisite: NewPrerequisite | None = None
+    # Optionally: the request kicked off an offscreen process (council review,
+    # application…) that completes after a while — the named dynamic var matures to
+    # True then, instead of demanding an impossible immediate result. (P2)
+    process_started: ProcessStarted | None = None
 
     @model_validator(mode="after")
     def validate_redirect_has_target(self):

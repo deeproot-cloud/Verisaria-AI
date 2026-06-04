@@ -238,6 +238,9 @@ class GameSession:
         # (NPC dialogue then degrades to templates forever).
         self.llm_orchestrator.reset_tick_budget()
 
+        # Mature any offscreen process whose waiting period has elapsed (P2).
+        self._advance_pending_processes()
+
         # Expire stale conversations so an NPC the player engaged long ago stops
         # counting as "in conversation" (and interjecting). Engine-level so EVERY
         # frontend gets it — previously only the CLI repl called this, which is why
@@ -1568,6 +1571,38 @@ class GameSession:
         self.world.state.world_vars.setdefault(var_id, False)
         return var_id
 
+    # An offscreen process (council review, application…) takes at most this many
+    # ticks to mature, so the GM can't park a var "pending" forever.
+    _MAX_PROCESS_TICKS = 10
+
+    def _begin_pending_process(self, proc) -> str | None:
+        """Mark a (GM-created) dynamic var as a pending offscreen process that will
+        mature to True after a delay — the answer to 'this needs a council meeting /
+        application that takes time'. Only the arbiter sets this (P2)."""
+        if proc is None:
+            return None
+        var_id = self._normalize_var_id(getattr(proc, "var_id", "") or "")
+        spec = self._world_var_specs.get(var_id)
+        if spec is None or not spec.get("dynamic"):
+            return None  # only matures GM-created process vars
+        if self.world.state.world_vars.get(var_id):
+            return None  # already satisfied
+        delay = max(1, min(self._MAX_PROCESS_TICKS,
+                           int(getattr(proc, "matures_in_ticks", 2))))
+        spec["pending_until"] = self.world.state.tick + delay
+        return var_id
+
+    def _advance_pending_processes(self) -> None:
+        """Mature any pending offscreen process whose time has come — flips the var
+        to True (emitting a WorldVarChanged so the player learns 'it came through')."""
+        now = self.world.state.tick
+        for var_id, spec in list(self._world_var_specs.items()):
+            due = spec.get("pending_until")
+            if due is not None and now >= due and not self.world.state.world_vars.get(var_id):
+                spec.pop("pending_until", None)
+                self.set_world_var(var_id, True)
+                _clog.info("[t%s] pending process matured → %s ⟳FLIP True", now, var_id)
+
     def _handle_world_change_request(self, action, var_id: str, authority_npc: str) -> str:
         """Adjudicate (via the arbiter) whether the authorized NPC complies with
         the player's world-changing request, factoring in their relationship. On
@@ -1616,6 +1651,9 @@ class GameSession:
         # it as a dynamic var so the player has a structural path to satisfy it.
         raw_prereq = getattr(outcome.arbiter_output, "new_prerequisite", None)
         new_var = self._register_dynamic_prerequisite(raw_prereq)
+        # The request may kick off an offscreen process that matures over time (P2).
+        pending_var = self._begin_pending_process(
+            getattr(outcome.arbiter_output, "process_started", None))
         if raw_prereq is not None and new_var is None:
             _clog.info("[t%s]   new_prerequisite proposed but NOT registered "
                        "(dup/cap/bad-id/no-existing-set_by-NPC): %r → set_by=%s",
@@ -1652,6 +1690,10 @@ class GameSession:
                 _clog.info("[t%s]   +dynamic prerequisite var %r (set_by=%s, keywords=%s)",
                            self.world.state.tick, new_var,
                            _spec.get("set_by"), _spec.get("request_keywords"))
+            if pending_var:
+                _clog.info("[t%s]   process started → %r matures at tick %s",
+                           self.world.state.tick, pending_var,
+                           self._world_var_specs[pending_var].get("pending_until"))
             if verdict == "partial_success":
                 _clog.info("[t%s]   established_fact=%r", self.world.state.tick,
                            fact or "(none — arbiter stated no condition)")
