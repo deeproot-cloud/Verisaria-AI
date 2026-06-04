@@ -135,6 +135,10 @@ def test_arbiter_prompt_teaches_new_prerequisite_with_example():
     assert "ascii" in prompt and "蛇形" in prompt              # id format required
     assert "union_pause_order_received" in prompt             # worked example present
     assert "不能只把它写进 reason 或 established_fact" in prompt  # division of labour
+    # convergence rules (a)+(b): no infinite prerequisite recursion
+    assert "避免前置无限递归" in prompt
+    assert "本身能在一两步内被满足" in prompt                    # (a) bottom-out: shallow prereqs only
+    assert "做足铺垫时就放行" in prompt                          # (b) ledger sufficiency → success
 
 
 def test_dynamic_var_routes_a_request_by_npc_id_set_by(tmp_path):
