@@ -1707,8 +1707,13 @@ class GameSession:
             f"刚才有人对你说：「{request}」。{stance}。"
             f"（事实底真：『{var_label}』目前{flag_state}。**只陈述你确实知道为真的事**，"
             "绝不要声称任何尚未发生的进展，也不要虚构你并未亲见的凭证、签章或文件。）"
-            "用一句符合你身份的话回应对方（第一人称，不要分析、不要数字）。"
         )
+        if pending_var:
+            # The reply must make the kicked-off process legible to the player,
+            # rather than wandering off-topic (the t3 lag the playtest flagged).
+            directive += ("（你已经着手把这件事提交/上报、走正式流程，**明确告诉对方你已经去办了**，"
+                          "需要一点时间才会有结果，别扯到无关的话头上。）")
+        directive += "用一句符合你身份的话回应对方（第一人称，不要分析、不要数字）。"
 
         entity = self.world.state.get_entity(authority_npc)
         session = self.conversation_manager.get_active_session(authority_npc)

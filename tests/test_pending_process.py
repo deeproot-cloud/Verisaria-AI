@@ -64,6 +64,29 @@ def test_run_tick_matures_due_process(tmp_path):
     assert g.world.state.world_vars["rt_proc"] is True
 
 
+def test_process_start_reply_is_announced_to_player(tmp_path):
+    """When a process is kicked off, the authority NPC's voiced line must tell the
+    player it's underway (the playtest's 'visible dialogue lagged truth' note)."""
+    from types import SimpleNamespace
+    from verisaria.engine.validator import ValidatedOutcome
+    from verisaria.engine.schemas import ArbiterOutput
+
+    g = _session(tmp_path)
+    _dyn(g, "council_review")
+    captured: dict = {}
+    g.npc_dialogue_generator.generate_line = lambda **kw: captured.setdefault("d", kw.get("directive")) or "好。"
+
+    ao = ArbiterOutput(arbiter_id="t", source_action_id="a", outcome="partial_success",
+                       reason="r", confidence=0.5,
+                       process_started=ProcessStarted(var_id="council_review", matures_in_ticks=3))
+    g.arbiter.arbitrate = lambda action, world: ValidatedOutcome(
+        accepted=True, arbiter_output=ao, accepted_state_changes=[], rejected_state_changes=[])
+    g._handle_world_change_request(
+        SimpleNamespace(params={"content": "请你提交理事会审议"}, raw_text="x"), VAR, "npc.captain_brann")
+
+    assert "你已经去办了" in (captured["d"] or "")
+
+
 def test_pending_process_survives_save_load(tmp_path):
     g = _session(tmp_path)
     _dyn(g, "proc_v")
