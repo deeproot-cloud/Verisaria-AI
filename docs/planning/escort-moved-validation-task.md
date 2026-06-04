@@ -3,6 +3,12 @@
 > 给测试 Agent 的任务简报。承接三轮护送验证：机制健康但 skyglass 全员高阻力、`⟳MOVED` 未出。
 > 本轮用**专门构造的低阻力 pack** 把护送闭环彻底跑通。配套设计 `docs/design/dynamic-world-model.md`。
 
+> **⚠ 第二跑（commit 4f4f1df 起）**：第一跑（`reports/escort_moved_validation/`）逮到并已修一个真 bug——
+> 护送意愿裁定 prompt 之前**没把 NPC 的 `traits` 喂给判官**，所以连低阻力的安雅都只看到 attributes、
+> 跨 5 次全 `partial_success`。现已修：`ArbiterContext.target_traits` 把 `entity.traits` 传入，escort
+> prompt 渲「性格/特质」。**这一跑重点确认：安雅的人设进了判官视野后，能否真出 `escort … success ⟳MOVED`**。
+> 直接拿下面同一个 pack 重跑即可，关注点不变。
+
 ## 背景
 
 护送（P2c）机制三轮真机验证：检测/目的地解析/意愿裁定/反作弊全健康，`commit 5b98b95` 起 escort 已改用
