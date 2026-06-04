@@ -81,3 +81,30 @@
 
 > 注：proving 的闸官 trust=0.05 极低是**有意的内容设定**，(b) 在极低信任下不放行是合理的——若想看 proving
 > 闭环，可先和闸官铺垫几轮拉信任，或就用 skyglass 看路由修复后的推进。
+
+---
+
+## ⏱ 第三跑（commit 550d259 起）——干净夹具，盯端到端 ⟳FLIP
+
+第二跑结论：**路由修复实质生效**（oro 请求全进 world-change），剩下的"卡"几乎全是**内容层**（skyglass
+mae↔oro 循环死锁=决策 A；proving trust 0.05 过低 + 闸官升级到未建模机构 + 证人作证无 var 可翻）。引擎已就绪，
+缺一个**干净可闭环的验证夹具**。已把 `escort_proving_ground.json` 改成干净夹具：
+- 新增 `anya_testimony_given`（`set_by=npc.miller_anya`，作证类关键词）——**证人当面作证现在有可路由的落点**（②的落点）。
+- 闸官 trust 起点 0.25（不再是 0.05），(b) 充分性在跑齐铺垫后能真正触发；闸官人设本就"亲历者当面讲清就开闸"。
+
+**这一跑就盯一件事：proving 能否跑出端到端 `sluice_opened ⟳FLIP`。** 干净链路：
+```
+去 yard 护送安雅到闸房（escort ⟳MOVED）
+→ 对安雅说「当着老康的面把上游塌方讲清楚」（→ world-change anya_testimony_given by npc.miller_anya → success ⟳FLIP）
+→ 对老康说「安雅已当面作证、人证俱在，请开闸放水」（→ world-change sluice_opened by npc.warden_kang → success ⟳FLIP）
+```
+
+关注点：
+1. **证人作证是否翻 var**：日志是否出现 `world-change anya_testimony_given by npc.miller_anya → success ⟳FLIP`？
+   （②的落点验证——证人当面作证现在该翻其 var、进 ledger。）
+2. **终态是否闭环**：`anya_testimony_given=True` 后，闸官是否据此（+人设+ trust 0.25）判 `sluice_opened` success →
+   `⟳FLIP`？跑出完整 `证人 ⟳FLIP → 终态 ⟳FLIP` 整链否？
+3. 反作弊照旧（不护送/不作证直接谎称 → 不翻）。剔 fallback。
+
+> 这是验证夹具、有意做成可闭环——目的是**证明引擎能干净跑出端到端闭环**。skyglass 的循环死锁是另一类（决策 A，
+> 不在本轮）。若 proving 这条都跑通，动态世界模型 + 路由 + (a)+(b) 这条线就盖章了。
