@@ -62,6 +62,32 @@ uptake 0→1（GM 声明了 `union_witness_statement_filed`），台词矛盾已
 
 ---
 
+## ⏱ 第四跑（commit f3f4f5f 起）——盯闭环（prefix 已修）
+
+第三跑结果 `PARTIAL_PASS_DYNAMIC_ROUTING_FAIL_CLOSURE`（`reports/skyglass_dynamic_prereq_third_run/`）：
+放宽路由生效（自然语言成功进入 `world-change oro_halt_order_endorsed`），反作弊、去重、观测都正常；
+但链断在一环——GM 把链上的第二个动态变量声明成 `oro_halt_request_filed (set_by=['clinician_oro'])`，
+**少了 `npc.` 前缀**，导致玩家找 `npc.clinician_oro` 怎么说都路由不过去。
+
+已修：`set_by` 匹配现在**容忍 `npc.` 前缀有无**（`clinician_oro ≡ npc.clinician_oro`），role/id 都认。
+
+**这一跑就盯闭环，复用同一个去脚手架 pack**
+（`reports/skyglass_dynamic_prereq_test/skyglass_dynamic_prereq_pack.json`）：
+
+1. **整链能否闭环**：GM 声明动态前置链后，**逐环满足**——先找下游动态变量的权威 NPC（如 Oro 满足
+   `oro_halt_request_filed`），用自然语言发实质请求，看是否 `world-change <var> by <NPC> → success → ⟳FLIP`；
+   再回上游（Mae 的 `oro_halt_order_endorsed`）→ `⟳FLIP`；最后终态（`memory_purge_halted`）能否因前置
+   均为真而 `success → ⟳FLIP`。**目标：至少一条完整的 `动态前置 ⟳FLIP →（可多环）→ 终态 ⟳FLIP`。**
+2. **若仍卡**：贴卡在哪一环的 `world-change` 行 + `reason=`；特别注意 set_by 是否还有前缀/不存在 NPC 问题
+   （现在缺前缀也该能匹配了），以及关键词/路由是否仍有漏。
+3. 反作弊抽查一次（伪造前置不翻旗）。剔除 `⚠FALLBACK` tick。
+
+报告给出：闭环是否成立（贴完整 `⟳FLIP` 链路）或卡点。日志放 `reports/<新目录>/`。
+
+> 闭环成立 → **P1 站住**，接 P2（现场动作 summon/witness）。仍不成立 → 贴卡点日志，开发侧继续调。
+
+---
+
 ## （以下为第一跑原始简报，背景参考）
 
 ## 这轮验证什么
