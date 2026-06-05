@@ -6,7 +6,7 @@ import json
 
 from verisaria.protocol.engine_session import EngineSession
 from verisaria import protocol as P
-from verisaria.engine.schemas import ParsedIntent, ActionType, CommitmentLevel
+from verisaria.engine.schemas import ParsedIntent, ActionType, CommitmentLevel, Action
 
 PACK = "fixtures/content_packs/frostgate_watchpost.json"
 
@@ -127,6 +127,30 @@ def test_substantive_turn_emits_no_notice(tmp_path):
     seen: list = []
     es.submit_streaming(P.SubmitInput("我去难民营"), on_event=seen.append)
     assert not any(isinstance(e, P.Notice) for e in seen)
+
+
+def test_no_disembodied_npc_speech_on_move_tick(tmp_path):
+    """Playability audit #2: on a tick the player moves, an NPC at the location
+    just left must NOT emit NpcSpoke — mid-transit the player hears no one (P1.4),
+    else the left-behind NPC speaks disembodied at the destination."""
+    es = _es(tmp_path)  # frostgate: player at gatehouse with brann + voss
+    g = es.game
+    g.intent_parser.parse = lambda raw_text, **kw: ParsedIntent(
+        intent_id="i", source="natural_language", raw_text=raw_text,
+        intent_type=ActionType.MOVEMENT, actor_id="player_001", target_id=None,
+        content=None, modifiers={"to_location": "barracks"},
+        commitment=CommitmentLevel.COMMITTED, confidence=0.9,
+        performed_content=raw_text, timestamp=0,
+    )
+    # brann (left behind at the gatehouse) tries to chatter on the move tick
+    g._collect_npc_actions = lambda **kw: [Action(
+        action_id="a", source_intent_id=None, actor_id="npc.captain_brann",
+        action_type=ActionType.SPEECH, target_id=None, params={"content": "站住！"},
+        zone_id=None, conversation_session_id=None, tick=g.world.state.tick,
+    )]
+    res = es.submit(P.SubmitInput("我去兵营"))
+    assert any(isinstance(e, P.PlayerMoved) for e in res.events)
+    assert not any(isinstance(e, P.NpcSpoke) for e in res.events)  # no disembodied line
 
 
 def test_snapshot_surfaces_world_clock(tmp_path):

@@ -481,17 +481,6 @@ class GameSession:
         # Resolve queue → events + combat actions
         events, combat_actions = self.action_queue.resolve_with_combat(self.world)
 
-        # Structured protocol events (Step 2): NPC lines the player can perceive
-        # (A5: only actors co-located with the player) + the player's own move.
-        for a in npc_actions:
-            if a.action_type != ActionType.SPEECH:
-                continue
-            content = (a.params or {}).get("content")
-            actor = self.world.state.get_entity(a.actor_id)
-            if content and actor and actor.location_id == viewer_location:
-                self._emit(protocol.NpcSpoke(
-                    tick=self.world.state.tick, npc_id=a.actor_id,
-                    name=self.world.state.display_name(a.actor_id), line=content))
         # NB: player_before is a LIVE entity reference that resolve() mutates in
         # place, so compare against viewer_location (the string captured pre-resolve).
         player_after = self.world.state.get_entity(self.player_id)
@@ -499,6 +488,23 @@ class GameSession:
             player_after and viewer_location
             and player_after.location_id != viewer_location
         )
+
+        # Structured protocol events (Step 2): NPC lines the player can perceive
+        # (A5: only actors co-located at viewer_location). On a move tick the player
+        # is mid-transit and hears no other actor (P1.4) — the narration already
+        # suppresses others on a move, so the granular NpcSpoke events must too,
+        # else an NPC at the location just left "speaks" disembodied after the
+        # player has walked away (playability audit #2).
+        if not player_moved:
+            for a in npc_actions:
+                if a.action_type != ActionType.SPEECH:
+                    continue
+                content = (a.params or {}).get("content")
+                actor = self.world.state.get_entity(a.actor_id)
+                if content and actor and actor.location_id == viewer_location:
+                    self._emit(protocol.NpcSpoke(
+                        tick=self.world.state.tick, npc_id=a.actor_id,
+                        name=self.world.state.display_name(a.actor_id), line=content))
         if player_moved:
             self._emit(protocol.PlayerMoved(
                 tick=self.world.state.tick,
