@@ -86,7 +86,8 @@ def test_relationship_shift_emits_event(tmp_path):
     # Bypass the LLM appraisal: feed an already-computed result straight to apply.
     job = ("npc.captain_brann", "evt_1")
     result = SimpleNamespace(deltas={"suspicion": 0.3}, belief="这外来者可疑")
-    s._apply_appraisal_results([job], [result], tick=2)
+    # brann is the action's addressee → full weight (a bystander would be scaled).
+    s._apply_appraisal_results([job], [result], tick=2, action_target="npc.captain_brann")
 
     shifts = [e for e in events if isinstance(e, P.RelationshipShifted)]
     assert shifts, "a relationship shift should surface as an event"

@@ -284,3 +284,18 @@ def test_relationship_command_shows_appraised_npc(tmp_path):
     assert out is not None
     assert "voss" in out
     assert "suspicion" in out or "怀疑" in out
+
+
+def test_appraisal_prompt_invites_a_downward_path():
+    """Playability audit #5: the appraisal prompt must explicitly allow suspicion to
+    FALL / trust to rise for sincere/fair actions — not only ever rise on pressure."""
+    from types import SimpleNamespace
+    from verisaria.engine.appraisal import RelationshipAppraiser
+    from verisaria.engine.llm import FakeLLMProvider, LLMOrchestrator
+
+    appr = RelationshipAppraiser(LLMOrchestrator(primary_provider=FakeLLMProvider()))
+    prompt = appr._build_prompt(
+        "npc.x", None, SimpleNamespace(summary="玩家诚恳道歉并讲清了道理"))
+    assert "下降" in prompt           # suspicion can fall
+    assert "负" in prompt             # negative deltas explicitly invited
+    assert "鼓励" in prompt           # framed as normal/encouraged, not an exception

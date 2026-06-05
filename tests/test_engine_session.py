@@ -129,6 +129,30 @@ def test_substantive_turn_emits_no_notice(tmp_path):
     assert not any(isinstance(e, P.Notice) for e in seen)
 
 
+def test_bystander_appraisal_weighted_below_the_addressee(tmp_path):
+    """Playability audit #5: a perceived player action moves the ADDRESSEE's stance
+    at full weight, but a mere bystander (an NPC it wasn't directed at) forms a far
+    weaker impression — else a co-located guard never spoken to accrues the most
+    suspicion of anyone."""
+    from verisaria.engine.appraisal import AppraisalResult
+    es = _es(tmp_path)
+    g = es.game
+    captured: dict = {}
+    orig = g.relationship_store.apply
+    g.relationship_store.apply = lambda npc, tgt, deltas, tick: (
+        captured.__setitem__(npc, dict(deltas)), orig(npc, tgt, deltas, tick))[1]
+
+    target, bystander = "npc.captain_brann", "npc.sentry_voss"
+    jobs = [(target, "e1"), (bystander, "e1")]
+    results = [AppraisalResult(belief="b", deltas={"suspicion": 0.2}),
+               AppraisalResult(belief="b", deltas={"suspicion": 0.2})]
+    g._apply_appraisal_results(jobs, results, tick=1, action_target=target)
+
+    assert captured[target]["suspicion"] == 0.2                       # addressee: full weight
+    assert captured[bystander]["suspicion"] == 0.2 * g._BYSTANDER_APPRAISAL_WEIGHT
+    assert captured[bystander]["suspicion"] < captured[target]["suspicion"]
+
+
 def test_pack_opening_drives_present_at_open(tmp_path, monkeypatch):
     """Playability audit #7: a pack's player_agenda_template.current_drives is
     loaded into the agenda at open, so the player starts with their stated goal

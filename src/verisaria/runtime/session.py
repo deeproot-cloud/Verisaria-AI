@@ -524,8 +524,10 @@ class GameSession:
         # Relationship appraisal (PLAY-3 Channel A): each NPC that perceived a
         # socially-weighted *player* action appraises how it changes their stance
         # toward the player. Deltas accumulate into the relationship store, so
-        # the player's choices have visible consequence.
-        self._appraise_player_actions(dispatched)
+        # the player's choices have visible consequence. The action's addressee
+        # weighs it fully; mere bystanders form a far weaker impression (audit #5).
+        action_target = action.target_id if action.action_type == ActionType.SPEECH else None
+        self._appraise_player_actions(dispatched, action_target=action_target)
 
         # Build narrative. If the addressed NPC's reply was streamed live, drop it
         # (and the player's own just-typed line) from the assembled narrative so
@@ -1074,7 +1076,12 @@ class GameSession:
         EventType.SPEECH, EventType.SOCIAL, EventType.COMBAT, EventType.PHYSICAL,
     })
 
-    def _appraise_player_actions(self, dispatched: list) -> None:
+    # A mere bystander (an NPC the action wasn't addressed to) forms a far weaker
+    # impression than the addressee — else a co-located guard the player never
+    # spoke to accrues the most suspicion of anyone (playability audit #5).
+    _BYSTANDER_APPRAISAL_WEIGHT = 0.35
+
+    def _appraise_player_actions(self, dispatched: list, action_target: str | None = None) -> None:
         """For each NPC that perceived a socially-weighted player action this
         tick, run an appraisal and accumulate the resulting relationship deltas.
 
@@ -1133,11 +1140,11 @@ class GameSession:
             # Off the critical path: tick returns now; appraisal runs in the
             # background and is flushed before the next read/tick.
             future = self._appraisal_executor.submit(self._run_llm_jobs, jobs, _appraise)
-            self._pending_appraisal = (jobs, future, tick)
+            self._pending_appraisal = (jobs, future, tick, action_target)
         else:
             # Inline + serial for FakeLLM / replay (A10).
             results = self._run_llm_jobs(jobs, _appraise)
-            self._apply_appraisal_results(jobs, results, tick)
+            self._apply_appraisal_results(jobs, results, tick, action_target)
 
     def _emit(self, event: Any) -> None:
         """Push a structured protocol Event to the frontend sink, if attached.
@@ -1179,19 +1186,26 @@ class GameSession:
         player never observes stale state."""
         if self._pending_appraisal is None:
             return
-        jobs, future, tick = self._pending_appraisal
+        jobs, future, tick, action_target = self._pending_appraisal
         self._pending_appraisal = None
-        self._apply_appraisal_results(jobs, future.result(), tick)
+        self._apply_appraisal_results(jobs, future.result(), tick, action_target)
 
-    def _apply_appraisal_results(self, jobs: list, results: list, tick: int) -> None:
+    def _apply_appraisal_results(
+        self, jobs: list, results: list, tick: int, action_target: str | None = None
+    ) -> None:
         """Apply appraisal deltas + remember beliefs, in deterministic job order
-        (runs on the main thread, so no store races)."""
+        (runs on the main thread, so no store races). A bystander's deltas are
+        scaled down — only the addressee feels the action at full weight (#5)."""
         for key, result in zip(jobs, results):
             if result is None:
                 continue
             observer_id, _ = key
+            weight = 1.0 if observer_id == action_target else self._BYSTANDER_APPRAISAL_WEIGHT
+            deltas = ({d: v * weight for d, v in result.deltas.items()}
+                      if weight != 1.0 else result.deltas)
+            result.deltas = deltas
             self.relationship_store.apply(
-                observer_id, self.player_id, result.deltas, tick
+                observer_id, self.player_id, deltas, tick
             )
             if _rlog.isEnabledFor(logging.INFO) and result.deltas:
                 snap = self.relationship_store.get(observer_id, self.player_id)
