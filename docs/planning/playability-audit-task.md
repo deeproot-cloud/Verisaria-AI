@@ -149,3 +149,52 @@ arbiter 涌现的 `new_prerequisite var_id` 落原文。
 
 确认 F1 在真机**让 arbiter 不再造近重复变量、不再无限加码**，从而**原始 fixture（零内容手搓）下证据链能自己闭合**；
 若 LLM 命名躲过了 id-stem 去重，给出原文，好判断要不要上更强的语义去重。
+
+---
+
+## ⏱ 第四跑（commit 18e6674 起）—— 充分性闭环：原始 fixture 真能自己闭了吗
+
+三跑结论：F1 的「id-stem 去重 + 数量封顶」**必要但不充分**——真病根是 arbiter 在 reason 里**软性**不断发明新前置
+（id 不相关、躲过去重；数量 cap 反噬成「无路可走」死结 + 误伤独立前置）。已按用户拍板「**prompt 为主 + 结构兜底**」
+重做（commit `18e6674`）：
+
+- **回退数量封顶**（保留 id-stem 去重）。
+- **prompt 硬规则 (d)**：每个终态把「**已满足的前置**」喂进裁定 prompt，规则——已满足前置之上**不得再加码、必须
+  success**，否则即「软性出尔反尔」。
+- **引擎兜底**：`serves` 记录每前置所属终态；当某终态**所有已声明前置全为真**，即便 arbiter 仍 partial 也
+  **强制 success**（反作弊红线经用户同意放宽为「success 或 声明前置被真满足」——前置是真满足、非 bluff）。
+
+**这一跑就盯一件事：回到原始 `tidebreak_quarantine_harbor.json`（不调任何 world_state_vars 标签/关键词），证据链
+能不能自己闭到 `tow_order_halted ⟳FLIP`。**
+
+### 怎么跑
+
+原始 fixture（仅注入 world_premise 无关开关），复刻三跑那条 endgame：把三号泵闸事故证据公开 → 找林槐撤征船令。
+driver 每拍打印 `/world` 全量 + 落每条 arbiter 涌现的 `new_prerequisite var_id`，并在日志里抓 `sufficiency backstop`
+这行（引擎兜底触发标记）。**务必跑到终态或明确卡死再停，必出 report.md。**
+
+### 关注点（逐条回答）
+
+1. **⭐ 链能否自己闭**：不调内容，`pump_failure_disclosed ⟳FLIP → tow_order_halted ⟳FLIP` 能否走通？终局 `/world`
+   两个终态是否都 True？（三跑此处两个都 False。）
+2. **兜底 vs prompt 谁起的作用**：闭合是靠 **arbiter 自己据规则 (d) 判了 success**（日志无 `sufficiency backstop`），
+   还是靠**引擎兜底强制**（日志有 `sufficiency backstop: <var> … forced success`）？两种都算闭，但要分清——若全靠
+   兜底，说明 prompt (d) 在真机仍没 hold 住（可接受，兜底就是为此）。
+3. **没误伤 / 没乱翻**：终态是否**只在其声明前置真满足后**才翻？有没有出现「前置没满足却被强制翻」（那是兜底逻辑 bug）
+   或「把不相干的终态也翻了」？贴反例（若有）。
+4. **加码是否止住**：森工/林槐在前置满足后是否**不再发明新条件**（reason 里不再「还要再走一道…」）？还是仍嘴上加码、
+   但被兜底无视掉了？
+5. 回归：`FALLBACK=0`？无崩溃/死锁？
+
+### 报告请包含
+
+- ⭐ 不调内容，证据链能否自己 `⟳FLIP` 到 `tow_order_halted`（成/卡 + 终局 `/world`）。
+- 闭合是 prompt (d) 还是引擎兜底起效（贴 `sufficiency backstop` 日志有无）。
+- 有无误伤/乱翻（终态只在声明前置真满足后翻）。
+- 加码是否止住。
+- `FALLBACK` 计数；新 `*.log` + transcript + driver 放 `reports/<新目录>/`。
+
+### 一句话目标
+
+确认「prompt (d) + 引擎兜底」让**原始 fixture（零内容手搓）下港口证据链自己闭到 `tow_order_halted ⟳FLIP`**，且终态
+**只在声明前置真满足后**翻（反作弊精神守住）；并分清闭合主要靠 prompt 还是靠引擎兜底，好判断 prompt (d) 在真机够不够硬。
