@@ -116,6 +116,16 @@ class TestNPCDialogueGenerator:
         # A5: we never fed canonical world truth, so it must not appear
         assert "恶魔确实存在" not in prompt
 
+    def test_prompt_grounds_in_time_of_day_and_weather(self):
+        # slice 3b: the dialogue prompt carries the current time + sky so an NPC can
+        # react to the dark / the snow instead of being mute to the atmosphere.
+        gen = NPCDialogueGenerator(LLMOrchestrator(primary_provider=FakeLLMProvider()))
+        entity = EntityState(entity_id="npc.ele", entity_type="npc", location_id="sq")
+        world = WorldState(tick=1, clock_minutes=22 * 60, weather="雪",
+                           entities={"npc.ele": entity})
+        prompt = gen._build_prompt("npc.ele", entity, None, None, world=world)
+        assert "夜里" in prompt and "下着雪" in prompt
+
     def test_prompt_includes_conversation_partner_utterance(self):
         gen = NPCDialogueGenerator(LLMOrchestrator(primary_provider=FakeLLMProvider()))
         session = SimpleNamespace(

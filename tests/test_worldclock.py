@@ -44,6 +44,22 @@ def test_time_of_day_wraps_past_one_day():
     assert label.phase == "晨" and label.hour == 6
 
 
+def test_time_phrase_is_natural_prose():
+    assert wc.time_phrase(7 * 60) == "清晨"
+    assert wc.time_phrase(13 * 60) == "白天"
+    assert wc.time_phrase(18 * 60) == "黄昏时分"
+    assert wc.time_phrase(23 * 60) == "夜里"
+
+
+def test_phase_transition_line_for_adjacent_and_skipped_changes():
+    assert wc.phase_transition_line("昼", "暮") and "暗" in wc.phase_transition_line("昼", "暮")
+    assert wc.phase_transition_line("暮", "夜") and "夜" in wc.phase_transition_line("暮", "夜")
+    # a big skip can jump a phase (昼→夜) — still yields an "arrived" line, not None
+    assert wc.phase_transition_line("昼", "夜") is not None
+    # no change → no line
+    assert wc.phase_transition_line("昼", "昼") is None
+
+
 def test_clock_label_shows_day_and_hhmm():
     assert wc.clock_label(6 * 60 + 30) == "第1天 06:30"
     assert wc.clock_label(1440 + 18 * 60 + 5) == "第2天 18:05"
@@ -79,6 +95,21 @@ def test_session_wait_advances_world_clock(tmp_path):
     before = g.world.state.clock_minutes
     g.run_tick("")  # the player waits one beat → in-world time moves on
     assert g.world.state.clock_minutes > before
+
+
+def test_tick_crossing_dusk_emits_ambient_narration(tmp_path):
+    # slice 3b: passing a time-of-day boundary surfaces a short ambient line so the
+    # prose isn't mute to "天黑了" (the status bar isn't the only signal).
+    from verisaria.runtime.session import GameSession
+    from verisaria import protocol as P
+    g = GameSession("fixtures/content_packs/frostgate_watchpost.json",
+                    save_dir=str(tmp_path), llm_backend="fake")
+    events: list = []
+    g._event_sink = events.append
+    g.world.state.clock_minutes = 17 * 60 - 1   # 16:59 (昼), one beat tips into 暮
+    g.run_tick("")
+    narrations = [e for e in events if isinstance(e, P.Narration)]
+    assert any(("暗" in e.text or "向晚" in e.text or "夜" in e.text) for e in narrations)
 
 
 def test_pack_opening_time_sets_starting_clock(tmp_path, monkeypatch):

@@ -379,7 +379,27 @@ class NPCDialogueGenerator:
             parts.append(f"在你身边的有：{names}。")
         else:
             parts.append("此处眼下只有你一人。")
+        # Time of day + weather (slice 3b): ground the reply in the here-and-now so
+        # an NPC can naturally react to the dark / the snow instead of being mute to
+        # the very atmosphere the pack's tension hinges on. Player-perceivable (A5).
+        when = self._when_phrase(getattr(world, "state", world))
+        if when:
+            parts.append(when)
         return "## 你此刻的处境\n" + "".join(parts) + "\n\n"
+
+    @staticmethod
+    def _when_phrase(state: Any | None) -> str:
+        """"此刻是夜里，下着雪。" — empty when the world has no clock yet."""
+        clock = getattr(state, "clock_minutes", None)
+        if clock is None:
+            return ""
+        from verisaria.engine import worldclock, weather as weather_mod
+
+        when = worldclock.time_phrase(clock)
+        weather = getattr(state, "weather", "") or ""
+        if weather:
+            return f"此刻是{when}，{weather_mod.weather_phrase(weather)}。"
+        return f"此刻是{when}。"
 
     def _conversation_block(self, npc_id: str, session: Any | None) -> str:
         if session is None:

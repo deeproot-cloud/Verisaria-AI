@@ -44,6 +44,26 @@ def weather_label(condition: str) -> str:
     return f"{glyph} {condition}".strip()
 
 
+# Natural-prose forms (for the NPC dialogue prompt + ambient narration — slice 3b).
+_PHRASES: dict[str, str] = {
+    "晴": "天色晴朗", "多云": "天上多云", "阴": "天色阴沉",
+    "小雨": "下着小雨", "雨": "下着雨", "阵雨": "落着阵雨", "雷雨": "电闪雷鸣、暴雨倾盆",
+    "小雪": "飘着小雪", "雪": "下着雪", "雾": "起了雾", "大风": "刮着大风",
+}
+
+
+def weather_phrase(condition: str) -> str:
+    """Natural-language description of a condition for prose ("下着雪"…)."""
+    return _PHRASES.get(condition, condition or "")
+
+
+def weather_change_line(old: str, new: str) -> str | None:
+    """An ambient narration line for a weather change, or None if unchanged."""
+    if not new or new == old:
+        return None
+    return f"天气变了，{weather_phrase(new)}。"
+
+
 def initial_weather(climate: str | None, opening: str | None) -> str:
     """The opening sky: honour a pack-declared ``opening`` if it's reachable in
     this climate; otherwise start calm (a draw from the ladder's mild end)."""

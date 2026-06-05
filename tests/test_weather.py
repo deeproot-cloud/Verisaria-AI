@@ -54,6 +54,18 @@ def test_weather_label_has_glyph_and_name():
     assert "雨" in lbl and any(ch for ch in lbl if ord(ch) > 0x2600)  # an emoji glyph
 
 
+def test_weather_phrase_is_natural_prose():
+    assert W.weather_phrase("雪") == "下着雪"
+    assert W.weather_phrase("晴") == "天色晴朗"
+    assert W.weather_phrase("雾") == "起了雾"
+
+
+def test_weather_change_line_only_on_change():
+    assert W.weather_change_line("晴", "雪") and "下着雪" in W.weather_change_line("晴", "雪")
+    assert W.weather_change_line("雪", "雪") is None
+    assert W.weather_change_line("", "雪") and "下着雪" in W.weather_change_line("", "雪")
+
+
 # -- wired into the engine --
 
 def _session(tmp_path):

@@ -66,6 +66,32 @@ def time_of_day(clock_minutes: int) -> TimeOfDay:
     return TimeOfDay(phase=phase, glyph=glyph, hour=hour)
 
 
+# Natural-prose forms (for the NPC dialogue prompt + ambient narration — slice 3b),
+# distinct from the status-bar glyph label.
+_PHASE_PHRASE = {"晨": "清晨", "昼": "白天", "暮": "黄昏时分", "夜": "夜里"}
+# Notable phase transitions → an ambient line; a phase change with no exact entry
+# (e.g. a big skip jumps 昼→夜) falls back to the "arrived at" line.
+_PHASE_TRANSITION = {
+    ("昼", "暮"): "天色渐渐暗了下来。",
+    ("暮", "夜"): "夜幕四合，天黑透了。",
+    ("夜", "晨"): "天蒙蒙亮，又是一日。",
+    ("晨", "昼"): "日头升高，到了白天。",
+}
+_PHASE_ARRIVE = {"晨": "天亮了。", "昼": "到了白天。", "暮": "天色向晚。", "夜": "入夜了。"}
+
+
+def time_phrase(clock_minutes: int) -> str:
+    """Natural-language time of day for prose ("清晨"/"白天"/"黄昏时分"/"夜里")."""
+    return _PHASE_PHRASE.get(time_of_day(clock_minutes).phase, "")
+
+
+def phase_transition_line(old_phase: str, new_phase: str) -> str | None:
+    """An ambient narration line for a time-of-day change, or None if unchanged."""
+    if not new_phase or new_phase == old_phase:
+        return None
+    return _PHASE_TRANSITION.get((old_phase, new_phase)) or _PHASE_ARRIVE.get(new_phase)
+
+
 def clock_label(clock_minutes: int) -> str:
     """A compact「第N天 HH:MM」label for the status bar."""
     m = int(clock_minutes)

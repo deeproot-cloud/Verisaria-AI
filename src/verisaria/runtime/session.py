@@ -473,6 +473,10 @@ class GameSession:
             for e in self.world.state.entities.values()
             if e.entity_id != self.player_id and getattr(e, "entity_type", "") == "npc"
         }
+        # Time-of-day phase + weather before time advances, to narrate any crossing
+        # ("天黑了。" / "天气变了，下起了雪。") once the tick lands (slice 3b).
+        phase_before = worldclock.time_of_day(self.world.state.clock_minutes).phase
+        weather_before = self.world.state.weather
 
         # Resolve queue → events + combat actions
         events, combat_actions = self.action_queue.resolve_with_combat(self.world)
@@ -549,6 +553,7 @@ class GameSession:
         self.action_queue.clear()
         self._build_pacing_context()
         self._advance_tick_with_pacing(player_driven=True)
+        self._emit_environment_transition(phase_before, weather_before)
         self._emit(protocol.TickAdvanced(
             tick=self.world.state.tick, new_tick=self.world.state.tick))
 
@@ -1365,6 +1370,24 @@ class GameSession:
                 cond, self._climate, random.Random(base + hour))
         state.weather = cond
         state.weather_hour = target_hour
+
+    def _emit_environment_transition(self, phase_before: str, weather_before: str) -> None:
+        """Narrate a time-of-day or weather crossing this tick ("天黑了。" / "天气
+        变了，下起了雪。") so the passage of time and the sky aren't mute in the
+        prose — only the status bar (slice 3b)."""
+        state = self.world.state
+        lines: list[str] = []
+        phase_now = worldclock.time_of_day(state.clock_minutes).phase
+        if phase_now != phase_before:
+            line = worldclock.phase_transition_line(phase_before, phase_now)
+            if line:
+                lines.append(line)
+        if weather_before and state.weather and state.weather != weather_before:
+            line = weather_mod.weather_change_line(weather_before, state.weather)
+            if line:
+                lines.append(line)
+        if lines:
+            self._emit(protocol.Narration(tick=state.tick, text="".join(lines)))
 
     def _check_campaign_drivers(self) -> str | None:
         """Check campaign drivers and generate pressure events if triggered.
