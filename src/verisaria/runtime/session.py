@@ -1733,17 +1733,49 @@ class GameSession:
         # require at least some ascii letters — a pure-CJK id strips to junk
         return s if re.search(r"[a-z]", s) else ""
 
-    def _register_dynamic_prerequisite(self, prereq) -> str | None:
+    # A single terminal var can spawn at most this many distinct dynamic
+    # prerequisites — a guardrail against the arbiter infinitely subdividing one
+    # demand (存档→公示→广播→联署…), so the player isn't trapped half a step short
+    # of a moving goalpost (playability audit F1).
+    _MAX_PREREQS_PER_TERMINAL = 2
+
+    def _register_dynamic_prerequisite(self, prereq, serves: str | None = None) -> str | None:
         """Register a GM-declared prerequisite (arbiter `new_prerequisite`) as a
         first-class **dynamic** world var, so the player has a structural path to
         satisfy it instead of a dead-end demand. Initial False (created != satisfied
-        — anti-cheese intact: it still only flips on a real success). Deduped by
-        var_id and capped per session. See docs/design/dynamic-world-model.md."""
+        — anti-cheese intact: it still only flips on a real success).
+
+        ``serves`` is the terminal var being adjudicated, used to (a) reuse an
+        existing var that already covers this semantic instead of spawning a
+        near-duplicate, and (b) cap how many prerequisites one terminal can spawn
+        (F1). See docs/design/dynamic-world-model.md."""
         if prereq is None:
             return None
         var_id = self._normalize_var_id(getattr(prereq, "var_id", "") or "")
         if not var_id or var_id in self._world_var_specs:
             return None  # empty/garbage id, or already declared (pack or earlier)
+        label = (getattr(prereq, "label", "") or var_id)
+        keywords = list(getattr(prereq, "request_keywords", []) or [])
+
+        # F1 guardrail #1 — reuse an existing var that already covers this fact, so
+        # the arbiter can't spawn a near-duplicate (pump_failure_disclosed_publicly
+        # beside the author's pump_failure_disclosed) that the player satisfies in
+        # vain. Fold the new phrasings in so routing still catches them.
+        equivalent = self._existing_equivalent_var(var_id, label, keywords, exclude=serves)
+        if equivalent is not None:
+            kws = self._world_var_specs[equivalent].setdefault("request_keywords", [])
+            for kw in keywords:
+                if kw and kw not in kws:
+                    kws.append(kw)
+            return equivalent
+
+        # F1 guardrail #2 — a terminal can't infinitely subdivide its own demand.
+        if serves and sum(
+            1 for s in self._world_var_specs.values()
+            if s.get("dynamic") and s.get("serves") == serves
+        ) >= self._MAX_PREREQS_PER_TERMINAL:
+            return None
+
         if sum(1 for s in self._world_var_specs.values() if s.get("dynamic")) >= self._MAX_DYNAMIC_VARS:
             return None
         # Keep only set_by entries that resolve to a REAL NPC — the GM sometimes
@@ -1755,15 +1787,39 @@ class GameSession:
             return None
         self._world_var_specs[var_id] = {
             "var_id": var_id,
-            "label": (getattr(prereq, "label", "") or var_id),
+            "label": label,
             "set_by": set_by,
-            "request_keywords": list(getattr(prereq, "request_keywords", []) or []),
+            "request_keywords": keywords,
             "mutable": True,
             "initial": False,
             "dynamic": True,
+            "serves": serves,
         }
         self.world.state.world_vars.setdefault(var_id, False)
         return var_id
+
+    def _existing_equivalent_var(
+        self, var_id: str, label: str, keywords: list, exclude: str | None = None
+    ) -> str | None:
+        """An existing world var (author or dynamic) that already covers this
+        prerequisite's semantic, so we reuse it rather than spawn a near-duplicate
+        (F1). Conservative: only id-stem containment (one id is the whole of the
+        other) or a substantial keyword that already names the existing var."""
+        nid = var_id.lower()
+        for eid, spec in self._world_var_specs.items():
+            if eid == exclude:
+                continue
+            eid_l = eid.lower()
+            # id-stem containment: the arbiter derived the new id from an existing
+            # one (pump_failure_disclosed ⊂ pump_failure_disclosed_publicly).
+            if min(len(eid_l), len(nid)) >= 6 and (eid_l in nid or nid in eid_l):
+                return eid
+            # a substantial new keyword (≥4 chars) that already appears verbatim in
+            # the existing var's label — the same fact phrased differently.
+            elabel = spec.get("label", "") or ""
+            if elabel and any(len(kw) >= 4 and kw in elabel for kw in keywords):
+                return eid
+        return None
 
     # An offscreen process (council review, application…) takes at most this many
     # ticks to mature, so the GM can't park a var "pending" forever.
@@ -1989,7 +2045,7 @@ class GameSession:
         # The GM may introduce a prerequisite the world model has no var for — register
         # it as a dynamic var so the player has a structural path to satisfy it.
         raw_prereq = getattr(outcome.arbiter_output, "new_prerequisite", None)
-        new_var = self._register_dynamic_prerequisite(raw_prereq)
+        new_var = self._register_dynamic_prerequisite(raw_prereq, serves=var_id)
         # The request may kick off an offscreen process that matures over time (P2).
         pending_var = self._begin_pending_process(
             getattr(outcome.arbiter_output, "process_started", None))

@@ -220,3 +220,49 @@ def test_dynamic_var_survives_save_load(tmp_path):
     g2._handle_command(f"/load {save_id}")
     assert g2._world_var_specs.get("seal_verified", {}).get("dynamic") is True
     assert g2.world.state.world_vars.get("seal_verified") is True   # value restored
+
+
+# --- F1: convergence guardrails (playability audit) ---
+
+def test_near_duplicate_prereq_reuses_existing_var(tmp_path):
+    """F1#1: the arbiter must not spawn a near-duplicate of an existing var (the
+    audit's pump_failure_disclosed_publicly beside pump_failure_disclosed). A new
+    prereq whose id derives from an existing one reuses it, folding in keywords."""
+    g = _session(tmp_path)
+    first = g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="pump_failure_disclosed", label="泵闸故障是否公开",
+        set_by=[AUTH], request_keywords=["公开"]))
+    assert first == "pump_failure_disclosed"
+
+    dup = g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="pump_failure_disclosed_publicly", label="泵闸故障是否已公开公示",
+        set_by=[AUTH], request_keywords=["公示", "广播"]), serves="tow_order_halted")
+    assert dup == "pump_failure_disclosed"                          # reused, not new
+    assert "pump_failure_disclosed_publicly" not in g._world_var_specs
+    assert "公示" in g._world_var_specs["pump_failure_disclosed"]["request_keywords"]
+
+
+def test_terminal_cannot_infinitely_subdivide(tmp_path):
+    """F1#2: a single terminal can spawn at most _MAX_PREREQS_PER_TERMINAL distinct
+    prerequisites — no 存档→公示→广播→联署 escalation that traps the player."""
+    g = _session(tmp_path)
+    T = VAR  # refugees_admitted
+    a = g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="step_archived", label="已存档", set_by=[AUTH], request_keywords=["存档"]), serves=T)
+    b = g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="step_posted", label="已公示", set_by=[AUTH], request_keywords=["公示"]), serves=T)
+    assert a and b and a != b
+    c = g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="step_broadcast", label="已广播", set_by=[AUTH], request_keywords=["广播"]), serves=T)
+    assert c is None
+    assert "step_broadcast" not in g._world_var_specs
+
+
+def test_distinct_prereqs_for_different_terminals_still_register(tmp_path):
+    """The guardrails must not over-merge: unrelated prerequisites still register."""
+    g = _session(tmp_path)
+    a = g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="witness_testified", label="证人作证", set_by=[AUTH], request_keywords=["作证"]), serves="t1")
+    b = g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="document_filed", label="文件归档", set_by=[AUTH], request_keywords=["归档"]), serves="t2")
+    assert a == "witness_testified" and b == "document_filed"
