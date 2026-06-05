@@ -140,6 +140,7 @@ def test_arbiter_prompt_teaches_new_prerequisite_with_example():
     assert "本身能在一两步内被满足" in prompt                    # (a) bottom-out: shallow prereqs only
     assert "做足铺垫时就放行" in prompt                          # (b) ledger sufficiency → success
     assert "不要与自己的立场自相矛盾" in prompt                  # (c) honor the authority's stated condition
+    assert "已满足的前置不得再加码" in prompt                    # (d) no soft re-escalation (F1)
 
 
 def test_arbiter_prompt_carries_target_persona_and_stated_stance():
@@ -242,20 +243,71 @@ def test_near_duplicate_prereq_reuses_existing_var(tmp_path):
     assert "公示" in g._world_var_specs["pump_failure_disclosed"]["request_keywords"]
 
 
-def test_terminal_cannot_infinitely_subdivide(tmp_path):
-    """F1#2: a single terminal can spawn at most _MAX_PREREQS_PER_TERMINAL distinct
-    prerequisites — no 存档→公示→广播→联署 escalation that traps the player."""
+def test_subdivision_no_longer_hard_capped(tmp_path):
+    """F1 third run: the hard per-terminal count cap was reverted — it only blocked
+    registration (not the arbiter's prose demands) and over-blocked a genuinely
+    distinct prerequisite. Distinct prereqs for one terminal now all register;
+    escalation is bounded by sufficiency, not a count."""
     g = _session(tmp_path)
-    T = VAR  # refugees_admitted
-    a = g._register_dynamic_prerequisite(NewPrerequisite(
-        var_id="step_archived", label="已存档", set_by=[AUTH], request_keywords=["存档"]), serves=T)
-    b = g._register_dynamic_prerequisite(NewPrerequisite(
-        var_id="step_posted", label="已公示", set_by=[AUTH], request_keywords=["公示"]), serves=T)
-    assert a and b and a != b
-    c = g._register_dynamic_prerequisite(NewPrerequisite(
-        var_id="step_broadcast", label="已广播", set_by=[AUTH], request_keywords=["广播"]), serves=T)
-    assert c is None
-    assert "step_broadcast" not in g._world_var_specs
+    T = VAR
+    ids = []
+    for vid, kw in [("step_archived", "存档"), ("step_posted", "公示"), ("step_broadcast", "广播")]:
+        ids.append(g._register_dynamic_prerequisite(NewPrerequisite(
+            var_id=vid, label=vid, set_by=[AUTH], request_keywords=[kw]), serves=T))
+    assert all(ids)  # none refused by a count cap
+
+
+def test_sufficiency_backstop_forces_success_when_all_prereqs_met(tmp_path):
+    """F1: once every declared prerequisite of a terminal is genuinely True, a
+    reneging arbiter verdict (partial_success) is overridden to success and the
+    terminal flips — the world honours its own stated terms (anti-cheese intact:
+    the prereqs are really True, no bluff)."""
+    g = _session(tmp_path)
+    assert g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="report_filed", label="报告已提交", set_by=[AUTH],
+        request_keywords=["提交"]), serves=VAR) == "report_filed"
+    g.world.state.world_vars["report_filed"] = True            # the prereq is satisfied
+
+    ao = ArbiterOutput(arbiter_id="t", source_action_id="a", outcome="partial_success",
+                       reason="还得再走一道审议", confidence=0.5)
+    g.arbiter.arbitrate = lambda action, world: ValidatedOutcome(
+        accepted=True, arbiter_output=ao, accepted_state_changes=[], rejected_state_changes=[])
+    g._handle_world_change_request(
+        SimpleNamespace(params={"content": "请照办"}, raw_text="请照办"), VAR, AUTH)
+    assert g.world.state.world_vars.get(VAR) is True           # forced success → flipped
+
+
+def test_sufficiency_backstop_silent_without_met_prereqs(tmp_path):
+    """The backstop must NOT fire when a terminal has no prereqs, or they're unmet —
+    a bare request still needs a genuine success (anti-cheese preserved)."""
+    g = _session(tmp_path)
+    ao = ArbiterOutput(arbiter_id="t", source_action_id="a", outcome="partial_success",
+                       reason="r", confidence=0.5)
+    g.arbiter.arbitrate = lambda action, world: ValidatedOutcome(
+        accepted=True, arbiter_output=ao, accepted_state_changes=[], rejected_state_changes=[])
+
+    # (1) no declared prereqs at all → not forced
+    g._handle_world_change_request(
+        SimpleNamespace(params={"content": "请照办"}, raw_text="请照办"), VAR, AUTH)
+    assert g.world.state.world_vars.get(VAR) in (False, None)
+
+    # (2) a declared prereq that is NOT satisfied → still not forced
+    g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="report_filed", set_by=[AUTH]), serves=VAR)
+    g._handle_world_change_request(
+        SimpleNamespace(params={"content": "请照办"}, raw_text="请照办"), VAR, AUTH)
+    assert g.world.state.world_vars.get(VAR) in (False, None)
+
+
+def test_arbiter_context_lists_satisfied_prerequisites(tmp_path):
+    """The prompt-side half: a terminal's met prerequisites are surfaced to the
+    arbiter (so rule (d) can forbid re-escalation)."""
+    g = _session(tmp_path)
+    g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="report_filed", label="报告已提交", set_by=[AUTH]), serves=VAR)
+    g.world.state.world_vars["report_filed"] = True
+    entry = next(e for e in g._world_vars_for_arbiter() if e["var_id"] == VAR)
+    assert entry.get("satisfied_prerequisites") == ["报告已提交"]
 
 
 def test_distinct_prereqs_for_different_terminals_still_register(tmp_path):

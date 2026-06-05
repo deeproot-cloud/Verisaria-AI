@@ -257,6 +257,11 @@ class LLMArbiter:
                 "条件下放行**（例如'只要有亲历者当面作证就开闸'），而那个条件**现在已被满足**（对应前置变量"
                 "已为真 / 已确立事实覆盖），你就【必须】判 **success**——绝不可在 TA 自己说过的条件已达成后，"
                 "又临时加一道 TA 立场里没有的新前置（如临时索要第三方背书、上级备案）。那是出尔反尔，不真实。\n"
+                "  · (d) **已满足的前置不得再加码（硬规则）**：某变量行下若列出了【你为此提出过的前置，现已"
+                "满足】的条目，说明你先前要求的实质核心**已被达成**——你【必须】判 **success**，并在 "
+                "`state_changes` 里把该 `world.<var_id>` 置 true；**绝不可**再发明任何新的程序性/审批类条件"
+                "（如再补一份材料、再走一道审议、再征得另一方同意、再公示一轮）。在已满足的前置之上继续添新"
+                "条件，就是【软性出尔反尔】，被严格禁止——尽职的权威此时会当场办事。\n"
             )
             for v in context.mutable_world_vars:
                 var_id = v.get("var_id", "")
@@ -275,6 +280,8 @@ class LLMArbiter:
                 prompt += line + "\n"
                 for fact in (v.get("established_facts") or []):
                     prompt += f"    · （先前已确立）{fact}\n"
+                for done in (v.get("satisfied_prerequisites") or []):
+                    prompt += f"    · ✅（你为此提出过的前置，现已满足）{done}\n"
             prompt += "\n"
 
         if context.npc_roster:

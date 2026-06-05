@@ -42,6 +42,7 @@ from verisaria.engine.subjectivity import SubjectivityService
 from verisaria.engine.intent import ClarificationRequest
 from verisaria.engine.schemas import (
     Action, ActionType, Drive, Event, EventType, Memory, MemoryLayer, PacingSpeed,
+    StateChange,
 )
 from verisaria.engine.world_book_filter import WorldBookFilter
 from verisaria.engine.validator import ValidatedOutcome
@@ -1648,6 +1649,16 @@ class GameSession:
             facts = [f.text for f in self.fact_ledger.relevant(var_id)]
             if facts:
                 entry["established_facts"] = facts
+            # Declared prerequisites of this terminal that are now satisfied — so the
+            # arbiter sees the substance is covered and must not invent a new
+            # procedural condition (the prompt-level half of the F1 sufficiency fix).
+            satisfied = [
+                self._world_var_specs[r].get("label", r)
+                for r in self._terminal_requirements(var_id)
+                if r in self._world_var_specs and self.world.state.world_vars.get(r)
+            ]
+            if satisfied:
+                entry["satisfied_prerequisites"] = satisfied
             out.append(entry)
         return out
 
@@ -1733,22 +1744,20 @@ class GameSession:
         # require at least some ascii letters — a pure-CJK id strips to junk
         return s if re.search(r"[a-z]", s) else ""
 
-    # A single terminal var can spawn at most this many distinct dynamic
-    # prerequisites — a guardrail against the arbiter infinitely subdividing one
-    # demand (存档→公示→广播→联署…), so the player isn't trapped half a step short
-    # of a moving goalpost (playability audit F1).
-    _MAX_PREREQS_PER_TERMINAL = 2
-
     def _register_dynamic_prerequisite(self, prereq, serves: str | None = None) -> str | None:
         """Register a GM-declared prerequisite (arbiter `new_prerequisite`) as a
         first-class **dynamic** world var, so the player has a structural path to
         satisfy it instead of a dead-end demand. Initial False (created != satisfied
         — anti-cheese intact: it still only flips on a real success).
 
-        ``serves`` is the terminal var being adjudicated, used to (a) reuse an
-        existing var that already covers this semantic instead of spawning a
-        near-duplicate, and (b) cap how many prerequisites one terminal can spawn
-        (F1). See docs/design/dynamic-world-model.md."""
+        ``serves`` is the terminal var being adjudicated, recorded so a terminal's
+        prerequisites are known — used by the dedup (reuse an existing var instead
+        of a near-duplicate) and by the sufficiency backstop (once every declared
+        prerequisite of a terminal is True, the authority can't renege). A hard
+        per-terminal *count* cap was tried (F1) and reverted: it only blocked
+        registration, not the arbiter's prose demands, so the player lost a legal
+        handle and a genuinely-distinct prerequisite got blocked — a worse dead end.
+        See docs/design/dynamic-world-model.md."""
         if prereq is None:
             return None
         var_id = self._normalize_var_id(getattr(prereq, "var_id", "") or "")
@@ -1768,13 +1777,6 @@ class GameSession:
                 if kw and kw not in kws:
                     kws.append(kw)
             return equivalent
-
-        # F1 guardrail #2 — a terminal can't infinitely subdivide its own demand.
-        if serves and sum(
-            1 for s in self._world_var_specs.values()
-            if s.get("dynamic") and s.get("serves") == serves
-        ) >= self._MAX_PREREQS_PER_TERMINAL:
-            return None
 
         if sum(1 for s in self._world_var_specs.values() if s.get("dynamic")) >= self._MAX_DYNAMIC_VARS:
             return None
@@ -1820,6 +1822,23 @@ class GameSession:
             if elabel and any(len(kw) >= 4 and kw in elabel for kw in keywords):
                 return eid
         return None
+
+    def _terminal_requirements(self, var_id: str) -> set[str]:
+        """The vars that must be True for this terminal to be satisfiable — its
+        registered dynamic prerequisites (serves == var_id) plus any author-declared
+        ``requires``. Empty when nothing has declared a prerequisite for it."""
+        reqs = set(self._world_var_specs.get(var_id, {}).get("requires", []) or [])
+        reqs.update(
+            vid for vid, spec in self._world_var_specs.items()
+            if spec.get("serves") == var_id
+        )
+        return reqs
+
+    def _terminal_requirements_met(self, var_id: str) -> bool:
+        """True iff this terminal has declared prerequisites and ALL of them are
+        genuinely True — the sufficiency signal that the authority must relent."""
+        reqs = self._terminal_requirements(var_id)
+        return bool(reqs) and all(self.world.state.world_vars.get(r) for r in reqs)
 
     # An offscreen process (council review, application…) takes at most this many
     # ticks to mature, so the GM can't park a var "pending" forever.
@@ -2007,6 +2026,26 @@ class GameSession:
             outcome = self.arbiter.arbitrate(action, self.world)
         finally:
             self.world.mutable_world_vars = None
+
+        # Sufficiency backstop (F1): once every declared prerequisite of this
+        # terminal is genuinely True, the authority may not renege with yet another
+        # procedural condition — grant success. Anti-cheese intact: the prerequisites
+        # are really satisfied (no bluff), so this is the world honouring its own
+        # stated terms, not the player faking one. The arbiter prompt is told the
+        # same thing (the primary lever); this is the deterministic backstop for
+        # when the LLM still moves the goalpost (audit F1, third run).
+        if (outcome.arbiter_output.outcome != "success"
+                and self._terminal_requirements_met(var_id)):
+            _clog.info("[t%s] sufficiency backstop: %s — all declared prereqs True → "
+                       "forced success (arbiter said %s)", self.world.state.tick, var_id,
+                       outcome.arbiter_output.outcome)
+            outcome.arbiter_output.outcome = "success"
+            field = f"world.{var_id}"
+            if not any(c.field == field for c in outcome.accepted_state_changes):
+                outcome.accepted_state_changes = list(outcome.accepted_state_changes) + [
+                    StateChange(field=field, delta=True,
+                                reason="all declared prerequisites satisfied")
+                ]
 
         # The arbiter LLM proposes its verdict label and its state changes
         # independently, and can disagree with itself — labelling a verdict

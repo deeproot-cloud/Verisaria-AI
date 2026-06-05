@@ -55,9 +55,13 @@ LLM 很自然会要"带我去塔基""我得亲眼看白舱"。给玩家可执行
 2. **有界**：动态变量去重（稳定 var_id；**同义则复用**）+ 每局上限，防止 GM 刷爆世界状态。
    - **F1 收敛护栏（`v0.5.x`，真包审计后落地）**：注册新前置时若与已有变量（作者/动态）**语义近重复**
      就**复用已有变量**（id-stem 包含，或新关键词已命中已有 label；并把新措辞折进已有 keywords），杜绝
-     `pump_failure_disclosed_publicly` 与作者 `pump_failure_disclosed` 互不相认；且**单个终态最多派生
-     `_MAX_PREREQS_PER_TERMINAL=2` 个前置**，挡住「存档→公示→广播→联署…」无限细分。把 (a)/(b) 从纯
-     prompt 约束**提升为确定性引擎闸**。
+     `pump_failure_disclosed_publicly` 与作者 `pump_failure_disclosed` 互不相认。
+   - **充分性闭环（F1 三跑后）**：真机暴露的真病根是 arbiter 在 reason 里**软性**不断发明新前置（id 不相关、
+     躲过去重；硬数量 cap 试过、反噬成「无路可走」死结 + 误伤独立前置，已**回退**）。改用「**prompt 为主 +
+     引擎兜底**」：① 每个终态把**已满足的前置**喂进裁定 prompt，硬规则 (d)「已满足的前置之上不得再加码、必须
+     success」；② 引擎兜底——`serves` 记录每个前置所属终态，当某终态**所有已声明前置全为真**时，
+     `_terminal_requirements_met` 触发，即便 arbiter 仍 partial 也**强制 success**（反作弊不破：前置是真满足、
+     非 bluff；红线由「只在 arbiter success 翻」放宽为「success 或 声明前置被真满足」，用户拍板）。
 3. **Coherence**：新变量不得与现有世界状态矛盾；id/label 合法。
 4. **持久化**：动态变量（及其 specs）随存档保存/载入；账本已持久化。
 5. **A5**：动态变量是世界事实，按既有可见性规则；不泄露 NPC 私有。
