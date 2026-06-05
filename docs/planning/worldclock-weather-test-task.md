@@ -116,3 +116,53 @@ driver 脚本里（参考 `scripts/run_escort_*.py` 的写法）：
 
 确认 slice 3b 让 **NPC 在真机里真的接住此刻的雪/夜**、过渡叙述不刷屏地补上时辰天候，从而把第一跑指出的沉浸缺口
 **合上**——且对动态世界模型与 dialogue 链零回归、`FALLBACK=0`。
+
+---
+
+## ⏱ 第三跑（commit 7c8a177 起）—— `stationed` 守岗能否让「开 rhythm + 不卡链」成立
+
+第二跑暴露的唯一保留：开 `npc_daily_rhythm` 后，**旁观的关键 NPC（闸官老康）日间 ×2.5 离岗游走、卡住护送链**
+（引擎自发派生 `anya_and_kang_face_to_face`、终态未闭合）。这是「常开扰动护送 pack」的预期表现，但要让有权威
+的包**能安全启用 rhythm**，需要一个让关键 NPC 守岗的开关。
+
+已上 **slice 3c-a `stationed`**（commit `7c8a177`）：包给关键 NPC 标 `"stationed": true` → 该 NPC **永不自主
+游走**（仍说话/张望/等待），即便世界在跑 rhythm 也始终在岗可达。`EntityState.stationed`（默认 False → 零行为
+变化）；`_generate_for_npc` 两个移动分支前置 `not stationed`，RNG 照抽 → 复现性不变；离线实测守岗 NPC 日间离岗率
+0%（普通 NPC 21%）。
+
+**这一跑就盯一件事：把第二跑那条失败的 flag-on 跑，在闸官守岗后重跑——开着 rhythm，护送链还能不能闭合。**
+
+### 怎么跑
+
+`escort_proving_ground.json`，在 `world_premise` **开 `npc_daily_rhythm: true`**（与第二跑 flag-on 同），并给
+**闸官老康**那条 `initial_entities` 记录加 `"stationed": true`（仅此一处声明式开关，注入内存副本，fixture 逐字节
+不改）。可叠 `opening_time` 让开局落在日间（晨/昼，老康原本最容易离岗的时段）以构成最强压力测试。然后真机走那条
+干净链：
+```
+去 yard 护送安雅到闸房（escort ⟳MOVED）
+→ 对安雅说「当着老康的面把上游塌方讲清楚」（→ anya_testimony_given ⟳FLIP）
+→ 对老康说「人证俱在，请开闸放水」（→ sluice_opened ⟳FLIP）
+```
+driver 里照旧打 `snapshot.time_of_day/clock/weather`，并收 `NpcMoved` 事件（盯老康是否还自发离岗）。
+
+### 关注点（逐条回答）
+
+1. **守岗是否成立**：开 rhythm 的日间，老康是否**全程待在岗位、零自发 `NpcMoved`**（对照第二跑 `★NPC_MOVED 闸官老康:
+   闸房->院子`）？贴老康的位置序列 / 有无 NpcMoved。
+2. **链是否闭合**：老康守岗后，护送链是否跑出完整 `anya_testimony_given ⟳FLIP → sluice_opened ⟳FLIP`——即
+   **「开着 rhythm 也不卡链」成立**？贴 `⟳FLIP` 链路或卡点 `reason=`。
+3. **其余 NPC 仍按作息动**：非 `stationed` 的 NPC（哨兵/难民等）开 rhythm 后是否照常日间散开/夜里归家、`NpcMoved`
+   带显示名照常感知？（确认 `stationed` 只钉住被标的那个，没误伤整体活世界。）
+4. **零回归 / FALLBACK=0 / 超时=0**：照旧。剔 fallback（`reason=` 写真实原因）。
+
+### 报告请包含
+
+- 守岗：老康位置序列 + 有无自发 NpcMoved（核心：守岗成立 / 仍离岗）。
+- 链闭合：开 rhythm 下是否跑出 `… → sluice_opened ⟳FLIP`（贴链路或卡点）。
+- 其余 NPC 作息是否照常（没被 `stationed` 误伤）。
+- 零回归 / `FALLBACK=0` / 超时计数；新 `*.log` + transcript + driver 放 `reports/<新目录>/`。
+
+### 一句话目标
+
+确认 `stationed` 让**「开 `npc_daily_rhythm` + 关键 NPC 守岗 → 护送链照常闭合」**在真机成立——即活世界的日夜节律
+现在可以**安全用在有权威的内容包**上，不再以卡链为代价；且不误伤其余 NPC 的作息、零回归、`FALLBACK=0`。
