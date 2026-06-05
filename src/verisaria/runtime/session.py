@@ -2545,6 +2545,11 @@ class GameSession:
         appears (an NPC arrives, combat, pressure) or a safety cap is reached.
         """
         start = self.world.state.tick
+        # Time-of-day / weather before the fast-forward, so a "/skip 到天黑" still
+        # narrates the crossing it skips over — the player who waits for nightfall
+        # is exactly who wants that line (the normal/wait path already does this).
+        phase_before = worldclock.time_of_day(self.world.state.clock_minutes).phase
+        weather_before = self.world.state.weather
         lines: list[str] = []
         steps = 0
         while steps < self.MAX_SKIP_TICKS:
@@ -2559,6 +2564,7 @@ class GameSession:
             narrative = self._check_campaign_drivers()
             if narrative:
                 lines.append(narrative)
+        self._emit_environment_transition(phase_before, weather_before)
         total = self.world.state.tick - start
         if total <= 0:
             return "周围并不安全，无法快进。"

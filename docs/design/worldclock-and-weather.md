@@ -77,7 +77,8 @@
 - **NPC 对白 prompt**：`_environment_section` 末尾加「此刻是<时段>，<天气短语>。」（如「此刻是夜里，
   下着雪。」），NPC 据此自然接住天候/时辰。叙述生成器是模板、无 prompt，故走下一条。
 - **过渡环境叙述**：一拍跨过时段边界或天气变化时，发一句 ambient `Narration`（「天色渐渐暗了
-  下来。」/「天气变了，下着雪。」）。每拍至多一句时段 + 一句天气，不刷屏。
+  下来。」/「天气变了，下着雪。」）。每拍至多一句时段 + 一句天气，不刷屏。覆盖 /wait、自然输入与
+  **`/skip` 快进**（二跑发现 /skip 曾绕过，已补——按其跨越的**净边界**发一句，正合「等到天黑」的用例）。
 - 纯措辞 `worldclock.time_phrase`/`phase_transition_line`、`weather.weather_phrase`/`weather_change_line`
   （单测覆盖）；大跳跨相用「到达某时段」兜底。
 

@@ -65,6 +65,37 @@ def test_clock_label_shows_day_and_hhmm():
     assert wc.clock_label(1440 + 18 * 60 + 5) == "第2天 18:05"
 
 
+def test_opening_time_accepts_bare_phase_words_and_prose_forms():
+    # a pack author's natural "夜里"/"白天" must resolve, not silently fall to 08:00
+    assert wc.time_of_day(wc.parse_opening_time("夜里")).phase == "夜"
+    assert wc.time_of_day(wc.parse_opening_time("白天")).phase == "昼"
+    assert wc.time_of_day(wc.parse_opening_time("夜")).phase == "夜"
+    assert wc.parse_opening_time("白天") != wc.DEFAULT_OPENING_MINUTES
+    # time_phrase output round-trips back to the same phase
+    for clk in (7 * 60, 13 * 60, 18 * 60, 23 * 60):
+        phase = wc.time_of_day(clk).phase
+        assert wc.time_of_day(wc.parse_opening_time(wc.time_phrase(clk))).phase == phase
+
+
+def test_skip_narrates_the_boundary_it_fast_forwards_over(tmp_path):
+    # /skip to nightfall should still emit the crossing line it skips past (the
+    # /skip path used to bypass _emit_environment_transition).
+    from verisaria.runtime.session import GameSession
+    from verisaria import protocol as P
+    g = GameSession("fixtures/content_packs/frostgate_watchpost.json",
+                    save_dir=str(tmp_path), llm_backend="fake")
+    # isolate the player so the area is quiet and /skip actually fast-forwards
+    for e in g.world.state.entities.values():
+        if e.entity_id != g.player_id:
+            e.location_id = "__away__"
+    g.world.state.clock_minutes = 19 * 60 + 30   # 19:30 (暮); +6h skip → 01:30 (夜)
+    events: list = []
+    g._event_sink = events.append
+    g._handle_skip()
+    narrations = [e for e in events if isinstance(e, P.Narration)]
+    assert any(("夜" in e.text or "暗" in e.text) for e in narrations)
+
+
 def test_parse_opening_time_accepts_hhmm_and_named_phases():
     assert wc.parse_opening_time("18:30") == 18 * 60 + 30
     assert wc.parse_opening_time("06:00") == 6 * 60

@@ -108,6 +108,11 @@ _NAMED_OPENINGS: dict[str, int] = {
     "上午": 9, "正午": 12, "中午": 12, "午后": 14, "下午": 15,
     "傍晚": 18, "黄昏": 18, "日暮": 18, "夜晚": 21, "晚上": 21,
     "深夜": 1, "午夜": 0, "凌晨": 3,
+    # Bare phase words + the prose forms time_phrase() emits, so a pack author's
+    # natural "夜里"/"白天" resolves (and the label round-trips) instead of silently
+    # falling back to 08:00.
+    "晨": 7, "昼": 12, "暮": 18, "夜": 22,
+    "白天": 12, "白昼": 12, "黄昏时分": 18, "夜里": 22,
 }
 
 
