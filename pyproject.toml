@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "verisaria"
-version = "0.5.2"
+version = "0.5.3"
 description = "Verisaria — an LLM-driven RPG world engine"
 requires-python = ">=3.12"
 dependencies = [
