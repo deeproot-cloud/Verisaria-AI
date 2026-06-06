@@ -299,3 +299,6 @@ def test_appraisal_prompt_invites_a_downward_path():
     assert "下降" in prompt           # suspicion can fall
     assert "负" in prompt             # negative deltas explicitly invited
     assert "鼓励" in prompt           # framed as normal/encouraged, not an exception
+    # audit 5 #2: a pressed principal must soften to a genuine out, even mid-investigation
+    assert "即便对方正在调查或追问你" in prompt
+    assert "给你台阶" in prompt
