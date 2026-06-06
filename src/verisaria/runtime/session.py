@@ -538,6 +538,14 @@ class GameSession:
             events, self.world.state, self.player_id, viewer_location=viewer_location,
             skip_speech_actors=skip_speech,
         )
+        # The player addressed the var's authority about their domain, but it didn't
+        # formalize as a request (too colloquial / a bare question) and drew no reply
+        # — surface a readable hint instead of a silent "什么也没发生", so the player
+        # learns to say it more directly rather than thinking nothing works (audit 5 #1b).
+        if narrative in ("什么也没发生。", "时间悄然流逝……"):
+            hint = self._unrouted_authority_hint(action)
+            if hint:
+                narrative = hint
         # For the structured Narration EVENT, strip ALL speech — granular Player/Npc
         # Spoke events already carry the dialogue, so this leaves only movement /
         # look / ambient prose (a TUI renders it without double-printing speech).
@@ -1731,6 +1739,39 @@ class GameSession:
         if is_question:
             return None
         return fuzzy or fallback
+
+    def _unrouted_authority_hint(self, action) -> str | None:
+        """When the player spoke to a var's authority *about that var's domain* but
+        it didn't route to a world-change (too colloquial / a bare question with no
+        keyword) — return a one-line hint, so a "found the right person, said the
+        right thing" turn doesn't read as a silent "什么也没发生" (audit 5 #1b)."""
+        if action.action_type != ActionType.SPEECH:
+            return None
+        target = action.target_id
+        if not target or not target.startswith("npc."):
+            return None
+        entity = self.world.state.get_entity(target)
+        player = self.world.state.get_entity(self.player_id)
+        if entity is None or player is None or entity.location_id != player.location_id:
+            return None
+        target_authority = (entity.attributes or {}).get("authority")
+        content = action.params.get("content") or ""
+        if not content:
+            return None
+        for var_id, spec in self._world_var_specs.items():
+            if spec.get("mutable", True) is False:
+                continue
+            if not self._set_by_matches(target, target_authority, spec.get("set_by") or []):
+                continue
+            # On their domain (a looser ≥2 overlap than routing's ≥3) but it didn't
+            # formalize — that's exactly the case worth nudging.
+            keywords = spec.get("request_keywords") or []
+            if (any(self._longest_overlap(k, content) >= 2 for k in keywords)
+                    or self._longest_overlap(spec.get("label", "") or "", content) >= 2):
+                name = self.world.state.display_name(target)
+                return (f"（{name}听着，却没把这当成一个明确的请求——"
+                        f"把你想让 TA 做的事直接、具体地说出来。）")
+        return None
 
     # Map an arbiter outcome to how the authority NPC should voice it (the
     # arbiter's analytical reason stays internal — never shown to the player).

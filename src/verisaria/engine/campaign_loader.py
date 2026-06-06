@@ -162,6 +162,57 @@ class CampaignLoader:
                                f"变量 '{a}' 与 '{b}' 的 id 高度重合 —— 像是同一件事的两个变量，"
                                f"玩家满足一个可能不顶另一个（#1 陷阱）。", "world_state_vars")
 
+        # Reachability: a var whose only satisfier NPC stands behind a location the
+        # player can't reach from the start is an output they can never get to (audit
+        # 5 #4). Only run when the pack declares a real topology, and only flag a
+        # DECLARED location (an implicit one we can't reason about is skipped).
+        start = pack.starting_location
+        loc_conns = {
+            loc.get("location_id"): [c.get("to") for c in (loc.get("connections") or [])]
+            for loc in pack.initial_locations if loc.get("location_id")
+        }
+        if start and any(loc_conns.values()):
+            reachable: set = set()
+            frontier = [start]
+            while frontier:
+                cur = frontier.pop()
+                if cur in reachable:
+                    continue
+                reachable.add(cur)
+                frontier.extend(loc_conns.get(cur, []))
+            npc_loc: dict = {}
+            auth_locs: dict = {}
+            for ent in pack.initial_entities:
+                if ent.get("entity_type", "npc") != "npc":
+                    continue
+                loc = ent.get("location_id")
+                eid = ent.get("entity_id", "")
+                if eid:
+                    npc_loc[eid] = loc
+                    npc_loc[eid.replace("npc.", "")] = loc
+                auth = (ent.get("attributes") or {}).get("authority")
+                if auth:
+                    auth_locs.setdefault(auth, set()).add(loc)
+            for v in vars_:
+                if v.get("mutable", True) is False:
+                    continue
+                vid = v.get("var_id", "?")
+                sat_locs: set = set()
+                for sb in (v.get("set_by") or []):
+                    bare = sb.replace("npc.", "")
+                    if sb in npc_loc:
+                        sat_locs.add(npc_loc[sb])
+                    elif bare in npc_loc:
+                        sat_locs.add(npc_loc[bare])
+                    elif sb in auth_locs:
+                        sat_locs |= auth_locs[sb]
+                declared = {loc for loc in sat_locs if loc in loc_conns}
+                if declared and not (declared & reachable):
+                    result.add("warning", "world_var_unreachable",
+                               f"可变变量 '{vid}' 的满足者 NPC 在 {sorted(declared)}，从起点 "
+                               f"'{start}' 经 connections 到不了 —— 玩家够不着这条线的出口。",
+                               f"world_state_vars.{vid}")
+
     @classmethod
     def _validate_schema_version(cls, pack: ContentPack, result: ValidationResult) -> None:
         if pack.schema_version != cls.SUPPORTED_SCHEMA_VERSION:

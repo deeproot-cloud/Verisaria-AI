@@ -202,6 +202,28 @@ def test_keyword_request_phrased_as_question_still_routes(tmp_path):
     assert g._world_change_request(topic) is None
 
 
+def test_unrouted_authority_speech_gets_a_readable_hint(tmp_path):
+    """Audit 5 #1b: a colloquial, on-domain address to the authority that didn't
+    formalize gets a hint (names the NPC), not a silent dead end."""
+    g = _session(tmp_path)
+    voss = g.world.state.get_entity("npc.sentry_voss")
+    player = g.world.state.get_entity(g.player_id)
+    voss.location_id = player.location_id
+    g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="door_unbarred", set_by=["npc.sentry_voss"], label="把门打开",
+        request_keywords=["开门"]))
+
+    on_topic = Action(action_id="a", actor_id=g.player_id, action_type=ActionType.SPEECH,
+                      target_id="npc.sentry_voss", tick=1,
+                      params={"content": "你就不能把门那边松松手吗"})  # touches 把门, no keyword
+    hint = g._unrouted_authority_hint(on_topic)
+    assert hint and "哨兵伏斯" in hint
+
+    off = Action(action_id="a", actor_id=g.player_id, action_type=ActionType.SPEECH,
+                 target_id="npc.sentry_voss", tick=1, params={"content": "今天天气不错"})
+    assert g._unrouted_authority_hint(off) is None
+
+
 def test_dynamic_var_routes_even_with_no_keyword_match(tmp_path):
     """A GM-invented var with empty/mismatched keywords still routes when the player
     addresses its authority NPC substantively — the arbiter then judges relevance."""

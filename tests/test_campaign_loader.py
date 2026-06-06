@@ -254,8 +254,47 @@ class TestWorldVarLint:
         assert result.valid is True  # authoring guidance, not a hard error
         assert _rules(result, "world_var_unsatisfiable")
 
+    def test_unreachable_satisfier_flagged(self):
+        pack = ContentPack(
+            content_pack_id="x", schema_version="2.0",
+            world_premise={"era": "e", "tone": "t", "central_tension": "c"},
+            starting_location="hall",
+            initial_entities=[
+                {"entity_id": "player_001", "entity_type": "player", "location_id": "hall"},
+                {"entity_id": "npc.warden", "entity_type": "npc", "location_id": "vault",
+                 "attributes": {"authority": "vault_authority"}}],
+            initial_locations=[
+                {"location_id": "hall", "name": "大厅", "connections": [{"to": "yard"}]},
+                {"location_id": "yard", "name": "院子", "connections": [{"to": "hall"}]},
+                {"location_id": "vault", "name": "金库", "connections": []}],  # walled off
+            world_state_vars=[{
+                "var_id": "vault_open", "label": "金库开", "mutable": True,
+                "set_by": ["vault_authority"], "request_keywords": ["开金库"]}],
+        )
+        issues = _rules(CampaignLoader.validate(pack), "world_var_unreachable")
+        assert issues and "vault_open" in issues[0].message
+
+    def test_reachable_satisfier_not_flagged(self):
+        pack = ContentPack(
+            content_pack_id="x", schema_version="2.0",
+            world_premise={"era": "e", "tone": "t", "central_tension": "c"},
+            starting_location="hall",
+            initial_entities=[
+                {"entity_id": "player_001", "entity_type": "player", "location_id": "hall"},
+                {"entity_id": "npc.warden", "entity_type": "npc", "location_id": "yard",
+                 "attributes": {"authority": "gate_authority"}}],
+            initial_locations=[
+                {"location_id": "hall", "name": "大厅", "connections": [{"to": "yard"}]},
+                {"location_id": "yard", "name": "院子", "connections": [{"to": "hall"}]}],
+            world_state_vars=[{
+                "var_id": "gate_open", "label": "门开", "mutable": True,
+                "set_by": ["gate_authority"], "request_keywords": ["开门"]}],
+        )
+        assert not _rules(CampaignLoader.validate(pack), "world_var_unreachable")
+
     def test_real_clean_pack_has_no_var_lint_warnings(self):
         pack = CampaignLoader.load_from_file("fixtures/content_packs/escort_proving_ground.json")
         result = CampaignLoader.validate(pack)
-        for rule in ("world_var_unsatisfiable", "world_var_no_keywords", "world_var_near_duplicate"):
+        for rule in ("world_var_unsatisfiable", "world_var_no_keywords",
+                     "world_var_near_duplicate", "world_var_unreachable"):
             assert not _rules(result, rule), f"{rule}: {[i.message for i in _rules(result, rule)]}"
