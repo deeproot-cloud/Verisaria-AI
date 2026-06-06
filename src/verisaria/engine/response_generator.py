@@ -146,8 +146,10 @@ class ResponseGenerator:
         # Default to Chinese for this project; English available as fallback
         return _DEFAULT_TEMPLATES
 
-    # NPC idle actions that are noise and should never be narrated to the player.
-    _NPC_NOISE_VERBS = {"wait"}
+    # NPC idle actions that are noise and should never be narrated to the player —
+    # an idle "look" (every bystander "环顾四周" each tick) drowns the scene in filler
+    # and, stacked on persuasion that didn't land, makes the pacing read dead (audit 5 #3).
+    _NPC_NOISE_VERBS = {"wait", "look"}
 
     def generate(
         self,

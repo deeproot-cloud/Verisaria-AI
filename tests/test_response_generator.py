@@ -300,12 +300,23 @@ class TestEdgeCases:
             actor_id="npc.guard_b",
             tick=0,
             location_id="town_square",
-            summary="look",
-            canonical_facts={"verb": "look"},
+            summary="climb",
+            canonical_facts={"verb": "climb"},  # a narrated action (idle look is filtered noise)
         )
         text = generator.generate([event], sample_world, "player_001")
         assert "guard b" in text
         assert "你" not in text
+
+    def test_npc_idle_look_is_filtered_as_noise(self, generator, sample_world):
+        """Audit 5 #3: a bystander's idle 'look' ('环顾四周') is filler — it must not
+        be narrated, so the scene isn't drowned in every NPC looking around each tick."""
+        event = Event(
+            event_id="evt_0_1", event_type=EventType.PHYSICAL, actor_id="npc.guard_b",
+            tick=0, location_id="town_square", summary="look",
+            canonical_facts={"verb": "look"},
+        )
+        text = generator.generate([event], sample_world, "player_001")
+        assert "环顾四周" not in text and "guard b" not in text
 
     def test_filters_events_by_player_location(self, generator, sample_world):
         """Events from other locations should not appear in narrative."""
