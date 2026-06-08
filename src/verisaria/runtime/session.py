@@ -1090,6 +1090,25 @@ class GameSession:
     # spoke to accrues the most suspicion of anyone (playability audit #5).
     _BYSTANDER_APPRAISAL_WEIGHT = 0.35
 
+    def _player_leverage_over(self, observer_id: str) -> list[str]:
+        """The player's leverage on the matters THIS NPC controls — established
+        facts (ledger) bearing on a var the NPC is the authority for. A wary
+        principal discounts pure words; a concession backed by something real
+        carries weight (audit 5 #2 — choices move people via evidence, not
+        sweet-talk)."""
+        entity = self.world.state.get_entity(observer_id)
+        authority = (entity.attributes or {}).get("authority") if entity else None
+        facts: list[str] = []
+        seen: set = set()
+        for var_id, spec in self._world_var_specs.items():
+            if not self._set_by_matches(observer_id, authority, spec.get("set_by") or []):
+                continue
+            for f in self.fact_ledger.relevant(var_id):
+                if f.text and f.text not in seen:
+                    seen.add(f.text)
+                    facts.append(f.text)
+        return facts
+
     def _appraise_player_actions(self, dispatched: list, action_target: str | None = None) -> None:
         """For each NPC that perceived a socially-weighted player action this
         tick, run an appraisal and accumulate the resulting relationship deltas.
@@ -1128,7 +1147,10 @@ class GameSession:
                     self.pack.world_book, entity
                 )
             ]
-            ctx[key] = {"entity": entity, "event": event, "known_facts": known_facts}
+            ctx[key] = {
+                "entity": entity, "event": event, "known_facts": known_facts,
+                "leverage": self._player_leverage_over(observer_id),
+            }
             jobs.append(key)
 
         if not jobs:
@@ -1142,7 +1164,7 @@ class GameSession:
             c = ctx[key]
             return self.relationship_appraiser.appraise(
                 observer_id, c["entity"], c["event"], self.world.state,
-                self.memory_store, known_facts=c["known_facts"],
+                self.memory_store, known_facts=c["known_facts"], leverage=c["leverage"],
             )
 
         if getattr(self.llm_provider, "supports_concurrency", False):

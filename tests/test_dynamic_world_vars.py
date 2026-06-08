@@ -202,6 +202,15 @@ def test_keyword_request_phrased_as_question_still_routes(tmp_path):
     assert g._world_change_request(topic) is None
 
 
+def test_player_leverage_over_surfaces_ledger_facts(tmp_path):
+    """Audit 5 #2 leverage model: established facts on a var the NPC governs are the
+    player's leverage over them (fed to the appraiser); none → empty."""
+    g = _session(tmp_path)
+    assert g._player_leverage_over(AUTH) == []                # nothing established yet
+    g.fact_ledger.add(text="你已查到她私抽热能的账", regarding=VAR, npc_id=AUTH, tick=1)
+    assert "你已查到她私抽热能的账" in g._player_leverage_over(AUTH)
+
+
 def test_unrouted_authority_speech_gets_a_readable_hint(tmp_path):
     """Audit 5 #1b: a colloquial, on-domain address to the authority that didn't
     formalize gets a hint (names the NPC), not a silent dead end."""

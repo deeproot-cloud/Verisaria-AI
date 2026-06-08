@@ -131,7 +131,8 @@ def test_appraisal_concurrent_path_applies_all_perceivers(tmp_path):
     # serial apply), so the assertion is stable.
     session.llm_provider.supports_concurrency = True
 
-    def fake_appraise(npc_id, entity, event, world=None, memory_store=None, known_facts=None):
+    def fake_appraise(npc_id, entity, event, world=None, memory_store=None,
+                      known_facts=None, leverage=None):
         return AppraisalResult(belief=f"{npc_id} sees the player", deltas={"suspicion": 0.2}, reason="r")
 
     session.relationship_appraiser.appraise = fake_appraise
@@ -296,9 +297,23 @@ def test_appraisal_prompt_invites_a_downward_path():
     appr = RelationshipAppraiser(LLMOrchestrator(primary_provider=FakeLLMProvider()))
     prompt = appr._build_prompt(
         "npc.x", None, SimpleNamespace(summary="玩家诚恳道歉并讲清了道理"))
-    assert "下降" in prompt           # suspicion can fall
-    assert "负" in prompt             # negative deltas explicitly invited
+    assert "下降" in prompt           # suspicion can fall (general downward path)
     assert "鼓励" in prompt           # framed as normal/encouraged, not an exception
-    # audit 5 #2: a pressed principal must soften to a genuine out, even mid-investigation
-    assert "即便对方正在调查或追问你" in prompt
-    assert "给你台阶" in prompt
+    # audit 5 #2 — leverage model: a wary/pressed principal softens only when the
+    # words are BACKED; pure sweet-talk is discounted, not punished (fixes the round-6
+    # backfire where giving an out *raised* suspicion).
+    assert "实据" in prompt or "筹码" in prompt
+    assert "既不该让你更信任、也不该让你更怀疑" in prompt
+
+
+def test_appraisal_prompt_renders_leverage_block():
+    from types import SimpleNamespace
+    from verisaria.engine.appraisal import RelationshipAppraiser
+    from verisaria.engine.llm import FakeLLMProvider, LLMOrchestrator
+    appr = RelationshipAppraiser(LLMOrchestrator(primary_provider=FakeLLMProvider()))
+    ev = SimpleNamespace(summary="玩家保证不写她的名字")
+
+    none = appr._build_prompt("npc.sula", None, ev)
+    assert "并无实据撑腰" in none            # no leverage → "just words"
+    backed = appr._build_prompt("npc.sula", None, ev, leverage=["你已查到她私抽热能的账"])
+    assert "你已查到她私抽热能的账" in backed  # leverage surfaced to the appraiser

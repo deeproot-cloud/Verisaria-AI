@@ -174,6 +174,7 @@ class RelationshipAppraiser:
         world: Any | None = None,
         memory_store: Any | None = None,
         known_facts: list[str] | None = None,
+        leverage: list[str] | None = None,
     ) -> AppraisalResult | None:
         """Return a clamped appraisal, or ``None`` to record no change.
 
@@ -182,7 +183,8 @@ class RelationshipAppraiser:
         rather than its trait labels alone.
         """
         try:
-            prompt = self._build_prompt(npc_id, entity, event, known_facts, memory_store)
+            prompt = self._build_prompt(npc_id, entity, event, known_facts, memory_store,
+                                        leverage=leverage)
             result = self.llm.call(
                 LLMCallRequest(
                     task_type=self.TASK_TYPE,
@@ -219,6 +221,7 @@ class RelationshipAppraiser:
         event: Any,
         known_facts: list[str] | None = None,
         memory_store: Any | None = None,
+        leverage: list[str] | None = None,
     ) -> str:
         try:
             template = self.prompts.load(self.TASK_TYPE, "v1.0.0")
@@ -239,6 +242,8 @@ class RelationshipAppraiser:
         knowledge = self._knowledge_block(known_facts)
         memories = self._memory_block(npc_id, memory_store)
         action_summary = getattr(event, "summary", "") or str(event)
+        leverage_block = ("\n".join(f"- {f}" for f in leverage) if leverage
+                          else "（据你所知，对方此刻并无实据撑腰——只是空口而谈。）")
         dims_list = "、".join(DIMENSIONS)
 
         return (
@@ -246,16 +251,18 @@ class RelationshipAppraiser:
             f"## 你是谁\n{persona}\n\n"
             f"## 你所相信的（你的世界观，只有你这一方知道）\n{knowledge}\n\n"
             f"## 你记得的事\n{memories}\n\n"
+            f"## 对方握有的、与你利害相关的实据/筹码\n{leverage_block}\n\n"
             f"## 刚刚发生的事（你亲眼/亲耳感知到的）\n{action_summary}\n\n"
             "## 任务\n"
-            "基于你的身份、立场与你所相信的，判断这件事如何改变你对当事人的看法。\n"
-            "判断要双向、对称：不要一遇到对方坚持、追问或施压就只会加深怀疑。若对方此刻**坦诚、"
-            "讲道理、展现善意、为你着想、主动给你台阶、承诺不损害你的利益、或卸下了对你的威胁**，"
-            "你的戒备(suspicion)就应当**下降**、信任(trust)或敬重(respect)**上升**——给出**负**的 "
-            "suspicion 增量、**正**的 trust 增量是完全正常、也是被鼓励的。**即便对方正在调查或追问你**，"
-            "只要 TA 真的展现了善意或作出让步，你的戒备也应**松动一点**，而不是因为'对方在查我'就一律不动。"
-            "对一次真诚的示好/让步判'毫无变化'是不真实的——人会对善意有反应。只有当对方**真的**显出"
-            "威胁、欺骗或敌意时才加深怀疑；只有纯属寒暄、与你利害无关的话才几乎不改变什么。\n"
+            "基于你的身份、立场与你所相信的，判断这件事如何改变你对当事人的看法。判断要双向、对称：不要一"
+            "遇到对方坚持、追问或施压就只会加深怀疑。\n"
+            "· **一般情形**：若对方此刻坦诚、讲道理、展现善意，你的戒备(suspicion)可以**下降**、信任(trust)/"
+            "敬重(respect)可以**上升**——负 suspicion / 正 trust 是正常且被鼓励的。\n"
+            "· **当你正戒备对方、或正被 TA 调查/追问、而 TA 显然想从你这里得到什么**：这时**空口的软话、给台阶、"
+            "保证**——一个谨慎的人会合理地打个折扣。它本身**既不该让你更信任、也不该让你更怀疑**（你的戒备"
+            "大体不动；把一句示好读成'居心叵测'而加深怀疑，是多疑、不是审慎）。**唯有当对方的话有上面「实据/"
+            "筹码」撑腰**时，那份让步才真有分量，应让你的戒备**松动**、甚至生出几分信任(trust)。\n"
+            "只有当对方**真的**显出威胁、欺骗或敌意时才加深怀疑；纯属寒暄、与你利害无关的话几乎不改变什么。\n"
             f"维度只能用：{dims_list}。增量为 -0.3~0.3 的小数（正=增强，负=削弱）。\n"
             "## 输出\n"
             '只返回 JSON：{"belief": "<你现在对此人形成的一句看法>", '
