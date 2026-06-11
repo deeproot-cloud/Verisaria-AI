@@ -127,3 +127,23 @@ def test_escort_routes_through_run_tick(tmp_path):
         performed_content=raw_text, timestamp=0)
     g.run_tick("跟我去兵营")
     assert g.world.state.get_entity("npc.sentry_voss").location_id == "barracks"
+
+
+def test_escort_wins_over_world_change_keyword_collision(tmp_path):
+    """Grand-integration: a clear escort '跟我去X' must route to escort even when a
+    var keyword overlaps the destination wording — world-change used to eat it."""
+    from verisaria.engine.schemas import ParsedIntent, CommitmentLevel, NewPrerequisite
+    g = _session(tmp_path)
+    _stub_arbiter(g, "success")
+    # a var sentry_voss governs whose keyword collides with the escort destination "兵营"
+    g._register_dynamic_prerequisite(NewPrerequisite(
+        var_id="barracks_thing", set_by=["npc.sentry_voss"], request_keywords=["兵营"]))
+    g.intent_parser.parse = lambda raw_text, **kw: ParsedIntent(
+        intent_id="i", source="natural_language", raw_text=raw_text,
+        intent_type=ActionType.SPEECH, actor_id="player_001",
+        target_id="npc.sentry_voss", content=raw_text,
+        commitment=CommitmentLevel.COMMITTED, confidence=0.9,
+        performed_content=raw_text, timestamp=0)
+    g.run_tick("跟我去兵营")
+    # escort won → voss relocated; a world-change verdict would move no one
+    assert g.world.state.get_entity("npc.sentry_voss").location_id == "barracks"

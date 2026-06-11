@@ -381,6 +381,17 @@ class GameSession:
                 source_id=action.source_intent_id,
             )
 
+            # P2c: a request to a co-located NPC to accompany the player somewhere
+            # ("跟我去X") — the arbiter judges willingness; on success the NPC (and
+            # player) relocate, so witness / on-site prerequisites become reachable.
+            # Checked BEFORE world-change: an escort is a strong, specific signal
+            # (escort phrasing + a resolvable DESTINATION + a co-located target), so
+            # a clear "跟我去审瓷堂" must not be eaten by a var keyword that happens to
+            # overlap the destination wording (grand-integration: escort routing).
+            esc = self._escort_request(action)
+            if esc is not None:
+                return self._handle_escort_request(action, *esc)
+
             # Channel C trigger: a request to the AUTHORIZED NPC to change a world
             # fact is adjudicated — does that NPC, given their stance toward the
             # player (Channel A) + their duty, comply? Persuading the right person
@@ -388,13 +399,6 @@ class GameSession:
             wc = self._world_change_request(action)
             if wc is not None:
                 return self._handle_world_change_request(action, *wc)
-
-            # P2c: a request to a co-located NPC to accompany the player somewhere
-            # ("跟我去X") — the arbiter judges willingness; on success the NPC (and
-            # player) relocate, so witness / on-site prerequisites become reachable.
-            esc = self._escort_request(action)
-            if esc is not None:
-                return self._handle_escort_request(action, *esc)
 
             # Rules Engine
             resolution = self.rules_engine.resolve(action, self.world.state)
