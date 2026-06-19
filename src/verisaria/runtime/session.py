@@ -1728,6 +1728,12 @@ class GameSession:
         if player is None or entity.location_id != player.location_id:
             return None
         content = action.params.get("content") or ""
+        # The parser condenses a long "先陈述后请求" utterance, paraphrasing the exact
+        # keyword out of `content` — so a statement-leading request silently decays to
+        # chatter. Match the verbatim keyword against the RAW input too, where it
+        # survives intact (grand-integration: world-change routing robustness).
+        raw = getattr(action, "raw_text", "") or ""
+        exact_hay = content if not raw else f"{content}\n{raw}"
         is_question = self._looks_like_question(content)
         exact: tuple[str, str] | None = None
         fuzzy: tuple[str, str] | None = None
@@ -1739,7 +1745,7 @@ class GameSession:
             if not self._set_by_matches(target, target_authority, set_by):
                 continue
             keywords = spec.get("request_keywords") or []
-            if any(k in content for k in keywords):
+            if any(k in exact_hay for k in keywords):
                 exact = (var_id, target)
                 break
             # Natural phrasing rarely contains a keyword VERBATIM ("暂停白舱对证人记忆的

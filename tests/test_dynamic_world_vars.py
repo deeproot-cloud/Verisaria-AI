@@ -202,6 +202,21 @@ def test_keyword_request_phrased_as_question_still_routes(tmp_path):
     assert g._world_change_request(topic) is None
 
 
+def test_statement_leading_request_routes_via_raw_text(tmp_path):
+    """Grand-integration: the parser condenses a long '先陈述后请求' utterance and
+    paraphrases the keyword out of `content`, so it used to decay to chatter. The
+    verbatim keyword survives in raw_text → the request still routes."""
+    g = _session(tmp_path)
+    brann = g.world.state.get_entity(AUTH)  # watch_authority for refugees_admitted (VAR)
+    player = g.world.state.get_entity(g.player_id)
+    brann.location_id = player.location_id
+    action = SimpleNamespace(
+        action_type=ActionType.SPEECH, target_id=AUTH,
+        params={"content": "城里断粮了，外头那些人快撑不住了"},          # cleaned — no keyword
+        raw_text="队长，城里断粮了，求你放难民进来吧")                    # raw — has "放难民进来"
+    assert g._world_change_request(action) == (VAR, AUTH)
+
+
 def test_player_leverage_over_surfaces_ledger_facts(tmp_path):
     """Audit 5 #2 leverage model: established facts on a var the NPC governs are the
     player's leverage over them (fed to the appraiser); none → empty."""
