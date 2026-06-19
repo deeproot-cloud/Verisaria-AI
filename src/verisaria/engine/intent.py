@@ -305,6 +305,13 @@ class IntentParser:
         # e.g. "广场" → town_square, clearing any ambiguity it raised.
         intent = self._resolve_movement_location(intent, world)
 
+        # A SPEECH whose target the LLM bound to an ABSENT NPC because the sentence
+        # mentioned that NPC's *domain* ("对在场的祭主说，提到'定罪'（征瓷使的职掌）"
+        # → target → absent 征瓷使) — retarget to the present addressee instead of
+        # dead-ending the whole turn with a spatial-mismatch (grand-integration).
+        intent = self._retarget_absent_speech_to_present_partner(
+            intent, world, active_conversation, raw_text)
+
         # If target_id is set and target_ref exists, remove ambiguities
         # that correspond to the resolved target (whether resolved by LLM
         # or by _resolve_target_ref).
@@ -488,6 +495,50 @@ class IntentParser:
         if best_match and best_dist <= threshold:
             intent.target_id = best_match
 
+        return intent
+
+    @staticmethod
+    def _retarget_absent_speech_to_present_partner(
+        intent: ParsedIntent,
+        world: WorldState,
+        active_conversation: dict[str, Any] | None,
+        raw_text: str,
+    ) -> ParsedIntent:
+        """A SPEECH the LLM bound to an ABSENT NPC — almost always because the
+        sentence mentioned that NPC's domain ("提到'定罪'" → 征瓷使) rather than
+        addressing them — is retargeted to the present addressee (the co-located
+        conversation partner, or the only co-located NPC). Skipped when the absent
+        target is named verbatim, so an explicit "let X (elsewhere) know…" is kept.
+        Without this, _check_spatial hard-rejects the turn and dead-ends the line."""
+        if intent.intent_type.value != "speech" or not intent.target_id:
+            return intent
+        if not intent.target_id.startswith("npc."):
+            return intent
+        actor = world.get_entity(intent.actor_id)
+        target = world.get_entity(intent.target_id)
+        if actor is None or target is None or target.location_id == actor.location_id:
+            return intent  # targetless / target already present → nothing to fix
+
+        rt = raw_text or ""
+        bare = intent.target_id.replace("npc.", "")
+        tname = getattr(target, "name", "") or ""
+        if intent.target_id in rt or bare in rt or (tname and tname in rt):
+            return intent  # explicitly addressed by name → respect the cross-location intent
+
+        present = [
+            eid for eid, e in world.entities.items()
+            if eid != intent.actor_id and getattr(e, "entity_type", "") == "npc"
+            and e.location_id == actor.location_id
+        ]
+        chosen = None
+        if active_conversation:
+            parts = [p for p in active_conversation.get("participants", []) if p in present]
+            if len(parts) == 1:
+                chosen = parts[0]
+        if chosen is None and len(present) == 1:
+            chosen = present[0]
+        if chosen is not None:
+            intent.target_id = chosen
         return intent
 
     def _build_prompt(

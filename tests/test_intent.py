@@ -515,3 +515,49 @@ def test_scan_raw_for_location_finds_embedded_name():
     assert IntentParser._scan_raw_for_location("随便走走", world) is None          # no name present
     # two names present → ambiguous → no scan match (stays a clarification)
     assert IntentParser._scan_raw_for_location("从征船听证台去三号净水泵房", world) is None
+
+
+def _spk(target_id, actor="player_001"):
+    return ParsedIntent(
+        intent_id="i", source="natural_language", raw_text="", intent_type=ActionType.SPEECH,
+        actor_id=actor, target_id=target_id, commitment=CommitmentLevel.COMMITTED,
+        confidence=0.9, timestamp=1)
+
+
+def _world_two_npcs():
+    return WorldState(
+        entities={
+            "player_001": EntityState(entity_id="player_001", entity_type="player", location_id="shrine"),
+            "npc.priest": EntityState(entity_id="npc.priest", entity_type="npc", location_id="shrine", name="祭主姞"),
+            "npc.assessor": EntityState(entity_id="npc.assessor", entity_type="npc", location_id="court", name="征瓷使严"),
+        },
+        locations={"shrine": LocationState(location_id="shrine"), "court": LocationState(location_id="court")},
+    )
+
+
+def test_absent_speech_target_retargets_to_present_partner():
+    """Grand-integration: a SPEECH the LLM bound to an ABSENT NPC (because the
+    sentence mentioned that NPC's domain) retargets to the present addressee instead
+    of dead-ending the turn."""
+    w = _world_two_npcs()
+    conv = {"participants": ["player_001", "npc.priest"]}
+    # bound to absent 征瓷使, but the player is mid-conversation with present 祭主姞 and
+    # didn't name 征瓷使 — retarget to 祭主姞
+    out = IntentParser._retarget_absent_speech_to_present_partner(
+        _spk("npc.assessor"), w, conv, "祭主，关于定罪这桩冤案我想替掘泥户申诉")
+    assert out.target_id == "npc.priest"
+
+
+def test_absent_speech_kept_when_named_verbatim():
+    w = _world_two_npcs()
+    out = IntentParser._retarget_absent_speech_to_present_partner(
+        _spk("npc.assessor"), w, {"participants": ["player_001", "npc.priest"]},
+        "请祭主转告征瓷使严，掘泥户是冤枉的")              # names 征瓷使严 → explicit cross-location
+    assert out.target_id == "npc.assessor"
+
+
+def test_present_speech_target_unchanged():
+    w = _world_two_npcs()
+    out = IntentParser._retarget_absent_speech_to_present_partner(
+        _spk("npc.priest"), w, None, "祭主，请受理这桩申诉")
+    assert out.target_id == "npc.priest"
